@@ -1,4 +1,0 @@
-"0","    d$ex[,i] <- rank(d$ex[,i])
-"
-"2","Error in rank(d$ex[, i]) : object 'd' not found
-"

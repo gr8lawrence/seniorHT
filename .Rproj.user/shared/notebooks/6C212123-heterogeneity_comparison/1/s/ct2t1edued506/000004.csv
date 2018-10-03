@@ -1,4 +1,0 @@
-"0","COMPASS_plus <- geneSort(COMPASS.2017_plus)
-"
-"2","Error in order(d$featInfo$SYMBOL) : object 'COMPASS.2017_plus' not found
-"

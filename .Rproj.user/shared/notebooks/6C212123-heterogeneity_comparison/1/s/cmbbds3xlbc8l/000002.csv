@@ -1,4 +1,0 @@
-"0","pooled.basal <-pooled.df[pooled.df$cluster == ""basal""]
-"
-"2","Error: Length of logical index vector must be 1 or 15613 (the number of columns), not 393
-"

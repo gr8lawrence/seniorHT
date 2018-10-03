@@ -1,4 +1,0 @@
-"0","dfAgu <- extractData(rankedAgu)
-"
-"2","Error in FUN(X[[i]], ...) : object of type 'closure' is not subsettable
-"

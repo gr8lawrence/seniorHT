@@ -1,1 +1,0 @@
-{"frames":[{"character_number":0,"end_character_number":0,"end_line_number":0,"file":"","func":"geneSort(COMPASS.2017_plus)","line_number":0},{"character_number":3,"end_character_number":35,"end_line_number":2,"file":"","func":"order(d$featInfo$SYMBOL)","line_number":2}],"message":"Error in order(d$featInfo$SYMBOL) : object 'COMPASS.2017_plus' not found\n"}
