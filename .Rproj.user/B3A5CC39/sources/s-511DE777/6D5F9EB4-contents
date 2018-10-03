@@ -1,0 +1,135 @@
+---
+title: "Tianyi's Senior Honors Thesis"
+author: "Tianyi Liu" 
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(caret)
+library(parallel)
+library(ranger) # fast implementation of random forest
+library(e1071) # svm
+```
+
+## Datasets
+
+Five datasets containing RNA-seq data from different clinical trials are included in our study:
+
+* Aguirre-seq
+* COMPASS
+* Linehan-seq 
+* Moffitt-GEO-array
+* TCGA-PAAD
+
+***
+
+## Data Pre-processing
+### Loading and subsetting
+```{r loadData, echo = FALSE}
+dataPath <- "/Users/gr8lawrence/Desktop/Senior Honors Thesis/datasets/"
+load(paste(dataPath, "Aguirre_seq_plus.RData", sep = ""))
+load(paste(dataPath, "COMPASS_plus.RData", sep = ""))
+load(paste(dataPath, "Linehan_Seq_plus.RData", sep = ""))
+load(paste(dataPath, "Moffitt_GEO_array_plus.RData", sep = ""))
+load(paste(dataPath, "TCGA_PAAD_plus.RData", sep = ""))
+```
+
+We first set the randomization seed
+``` {r setSeed}
+set.seed(100)
+```
+
+Our first goal is to subset the datasets so they only contain common genes. After we load the datasets, we sort the them by the `SYMBOL` characteristic of genes, which is completed by the following function:
+```{r sortGene}
+geneSort <- function(d) { # d is a dataset
+  index <- order(d$featInfo$SYMBOL)
+  d$ex[ , ] <- d$ex[index, ] 
+  d$featInfo[ , ] <- d$featInfo[index, ]
+  return(d)
+}
+```
+
+``` {r sortGeneImpl, echo = FALSE}
+Aguirre_seq_plus <- geneSort(Aguirre_seq_plus)
+COMPASS_plus <- geneSort(COMPASS.2017_plus)
+Linehan_Seq_plus <- geneSort(Linehan_Seq_plus)
+Moffitt_GEO_array_plus <- geneSort(Moffitt_GEO_array_plus)
+TCGA_PAAD_plus <- geneSort(TCGA_PAAD_plus)
+```
+
+After we called the above functions on all five datasets, we need to find the common genes across them by intersecting their `SYMBOL`.
+
+``` {r findCommonGene}
+# Get the list of gene symbols from datasets
+getGeneSymbols <- function(d) {
+  symbols <- d$featInfo$SYMBOL
+  return(symbols)
+} 
+
+commonNames1 <- intersect(getGeneSymbols(Linehan_Seq_plus), getGeneSymbols(COMPASS.2017_plus))
+commonNames2 <- intersect(getGeneSymbols(Moffitt_GEO_array_plus), getGeneSymbols(TCGA_PAAD_plus))
+commonNames3 <- intersect(commonNames1, commonNames2)
+commonNames <- intersect(commonNames3, getGeneSymbols(Aguirre_seq_plus))
+```
+
+We can see the number of common genes is `r length(commonNames)`.  
+Next, we subset our datasets so they only contain those common genes.
+``` {r subsetting}
+# Subset the datasets to ones of common genes
+matchCommonGenes <- function(d) {
+  index <- match(commonNames, d$featInfo$SYMBOL)
+  d$ex <- d$ex[index, ]
+  d$featInfo <- d$featInfo[index, ]
+  return(d)
+}
+
+Agu <- matchCommonGenes(Aguirre_seq_plus)
+Lin <- matchCommonGenes(Linehan_Seq_plus) 
+Com <- matchCommonGenes(COMPASS.2017_plus)
+Mof <- matchCommonGenes(Moffitt_GEO_array_plus)
+Tcga <- matchCommonGenes(TCGA_PAAD_plus)
+
+# We extract the names of the common genes fo future use
+geneNames <- Agu$featInfo$SYMBOL
+```
+
+### Rank transformation
+Because the measurements of RNA transcription abundance per sample are different across clinical trials, we rank transoform the columns of our data to unify the measurements.
+``` {r rankTransform}
+# Rank transform the common genes for each sample
+rankTransform <- function(d) {
+  for (i in 1:dim(d$ex)[2]) {
+    d$ex[,i] <- rank(d$ex[,i])
+  }
+  return(d)
+}
+
+rankedAgu <- rankTransform(Agu)
+rankedLin <- rankTransform(Lin)
+rankedCom <- rankTransform(Com)
+rankedMof <- rankTransform(Mof)
+rankedTcga <- rankTransform(Tcga)
+```
+
+### Finding the genes of high expression in basal pancreatic cancer
+In order to do so, we first need to pool the five datasets and remove the observations with unknown classification (`NA` in `cluster.MT`). 
+``` {r poolDataset}
+# Extract ranked expression from each dataset, remove observations of unknown cancer classification, and write them into tibbles
+extractData <- function(d) {
+  df <- as_tibble(t(d$ex))
+  colnames(df) <- make.names(geneNames)
+  df <- df[!is.na(d$sampInfo$cluster.MT), ]
+  return(df)
+}
+
+dfAgu <- extractData(rankedAgu)
+dfLin <- extractData(rankedLin)
+#dfCom <- extractData(rankedCom) # Does not have cluster.MT
+dfMof <- extractData(rankedMof)
+dfTcga <- extractData(rankedTcga)
+
+# Combined the five (four) expression datasets
+pooled.df <- rbind(dfAgu, rbind(dfLin, rbind(dfMof, dfTcga)))
+```

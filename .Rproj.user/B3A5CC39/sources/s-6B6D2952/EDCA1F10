@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1536270132064.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "EDCA1F10",
+    "lastKnownWriteTime" : 1536809340,
+    "last_content_update" : 1536809340756,
+    "path" : "~/Desktop/Senior Honors Thesis/code/data_processing.R",
+    "project_path" : "data_processing.R",
+    "properties" : {
+        "cursorPosition" : "73,45",
+        "scrollLine" : "60",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

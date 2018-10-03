@@ -1,0 +1,410 @@
+dataPath <- "/Users/gr8lawrence/Desktop/Senior Honors Thesis/datasets"
+# Load data
+dataPath <- "/Users/gr8lawrence/Desktop/Senior Honors Thesis/datasets/"
+aguirre <- load(paste(dataPath, "Aguirre_seq.RData"))
+aguirre <- load(paste(dataPath, "Aguirre_seq.RData", sep = ""))
+compass <- load(paste(dataPath, "COMPASS.RData", sep = ""))
+load(paste(dataPath, "Linehan_Seq.RData", sep = ""))
+load(paste(dataPath, "TCGA_PAAD.RData", sep = ""))
+load(paste(dataPath, "Moffitt_GEO_array.RData", sep = ""))
+head(rownames(Aguirre_seq))
+head(names(Aguirre_seq))
+head(names(Aguirre_seq)$ex)
+head(names(Aguirre_seq)[ex])
+head(names(Aguirre_seq$ex))
+names(Aguirre_seq)
+head(Aguirre_seq$featInfo)
+names(COMPASS)
+head(COMPASS$featInfo)
+intersect(Aguirre_seq$featInfo$ENSEMBL, COMPASS$featInfo$ENSEMBL)
+head(intersect(Aguirre_seq$featInfo$ENSEMBL, COMPASS$featInfo$ENSEMBL))
+head1 <- head(intersect(Aguirre_seq$featInfo$ENSEMBL, COMPASS$featInfo$ENSEMBL))
+order(head1)
+order_head1 <- order(head1)
+head1(order_head1)
+head1[order_head1]
+head(Aguirre_seq$ex)
+dim(Aguirre_seq$ex)
+length(Aguirre_seq$featInfo)
+width(Aguirre_seq$featInfo)
+dim(Aguirre_seq$featInfo)
+# Reduce datasets to common genes
+# Sort expression by gene name
+index <- order(Aguirre_seq$featInfo$ENSEMBL)
+dim(Aguirre_seq)
+dim(Aguirre_seq$ex)
+Aguirre_seq$ex <- Aguirre_seq$ex[index, ]
+Aguirre_seq$featInfo <- Aguirre_seq$featInfo[index, ]
+head(Aguirre_seq$featInfo$ENSEMBL)
+# Reduce datasets to common genes
+# Sort expression by gene name
+geneSort <- function(d) {
+index <- order(d$featInfo$ENSEMBL)
+d$ex <- d$ex[index, ]
+d$featInfo <- d$featInfo[index, ]
+}
+geneSort(Aguirre_seq)
+geneSort(COMPASS)
+geneSort(Linehan_Seq)
+geneSort(Moffitt_GEO_array)
+names(Moffitt_GEO_array)
+names(Moffitt_GEO_array$featInfo)
+names(Moffitt_GEO_array$featInfo$SYMBOL)
+names(Moffitt_GEO_array$featInfo)
+dim(Moffitt_GEO_array$ex)
+dim(Moffitt_GEO_array$featInfo$SYMBOL)
+dim(Moffitt_GEO_array$featInfo)
+dim(Moffitt_GEO_array$featInfo)
+head(Moffitt_GEO_array$featInfo$SYMBOL)
+head(COMPASS$featInfo$SYMBOL)
+head(Aguirre_seq$featInfo$SYMBOL)
+head(TCGA_PAAD$featInfo$SYMBOL)
+head(Linehan_Seq$featInfo$SYMBOL)
+factor <- as.factor(Aguirre_seq$featInfo$SYMBOL)
+head(factor)
+# Reduce datasets to common genes
+# adjust Aguirre's gene symbol to factors
+Aguirre_seq$featInfo$SYMBOL <- as.factor(Aguirre_seq$featInfo$SYMBOL)
+# Sort expression by gene name
+geneSort <- function(d) { # d is the name of the dataset
+index <- order(d$featInfo$SYMBOL)
+d$ex <- d$ex[index, ]
+d$featInfo <- d$featInfo[index, ]
+}
+geneSort(Aguirre_seq)
+head(Aguirre_seq$featInfo$SYMBOL)
+# Sort expression by gene name
+geneSort <- function(d) { # d is the name of the dataset
+index <- order(d$featInfo$SYMBOL)
+d$ex <- d$ex[index, ]
+d$featInfo <- d$featInfo[index, ]
+return(d)
+}
+Aguirre_seq <- geneSort(Aguirre_seq)
+head(Aguirre_seq$featInfo$SYMBOL)
+Aguirre_seq <- geneSort(Aguirre_seq)
+COMPASS <- geneSort(COMPASS)
+Linehan_Seq <- geneSort(Linehan_Seq)
+Moffitt_GEO_array <- geneSort(Moffitt_GEO_array)
+TCGA_PAAD <- geneSort(TCGA_PAAD)
+head(COMPASS$featInfo$SYMBOL)
+head(Linehan_Seq$featInfo$SYMBOL)
+head(Moffitt_GEO_array$featInfo$SYMBOL)
+Moffitt_GEO_array$featInfo
+names(Moffitt_GEO_array$featInfo)
+load(paste(dataPath, "Moffitt_GEO_array.RData", sep = ""))
+names(Moffitt_GEO_array$featInfo)
+Moffitt_GEO_array <- geneSort(Moffitt_GEO_array)
+names(Moffitt_GEO_array$featInfo)
+load(paste(dataPath, "Moffitt_GEO_array.RData", sep = ""))
+names(Moffitt_GEO_array$featInfo)
+Moffitt_GEO_array$featInfo[5,]
+head(Aguirre_seq$featInfo)
+head(COMPASS$featInfo)
+getGeneSymbols <- function(d) {
+symbols <- d$featInfo$SYMBOL
+return(SYMBOL)
+}
+getGeneSymbols <- function(d) {
+symbols <- d$featInfo$SYMBOL
+return(symbols)
+}
+head(getGeneSymbols(Moffitt_GEO_array))
+commonNames <- intersect(getGeneSymbols(Linehan_Seq),
+getGeneSymbols(COMPASS),
+getGeneSymbols(Moffitt_GEO_array),
+getGeneSymbols(TCGA_PAAD))
+commonNames1 <- intersect(getGeneSymbols(Linehan_Seq), getGeneSymbols(COMPASS))
+commonNames2 <- intersect(getGeneSymbols(Moffitt_GEO_array), getGeneSymbols(TCGA_PAAD))
+commonNames <- intersect(commonNames1, commonNames2)
+head(commonNames)
+Linehan_Seq[1,1,1]
+Linehan_Seq$featInfo[1,1,1]
+Linehan_Seq$featInfo[1,1]
+Linehan_Seq$featInfo[1,1,2,2]
+Linehan_Seq$featInfo[1,1,1,1]
+Linehan_Seq$featInfo[1,1,1]
+Linehan_Seq$featInfo[1,2]
+# Sort expression by gene name
+geneSort <- function(d) { # d is the name of the dataset
+index <- order(d$featInfo$SYMBOL)
+d$ex <- d$ex[index, ]
+d$featInfo[,] <- d$featInfo[index, ]
+return(d)
+}
+COMPASS <- geneSort(COMPASS)
+Linehan_Seq <- geneSort(Linehan_Seq)
+Moffitt_GEO_array <- geneSort(Moffitt_GEO_array)
+TCGA_PAAD <- geneSort(TCGA_PAAD)
+Moffitt_GEO_array$featInfo
+# Sort expression by gene name
+geneSort <- function(d) { # d is the name of the dataset
+index <- order(d$featInfo$SYMBOL)
+d$ex[ , ] <- d$ex[index, ]
+d$featInfo[ , ] <- d$featInfo[index, ]
+return(d)
+}
+COMPASS <- geneSort(COMPASS)
+Linehan_Seq <- geneSort(Linehan_Seq)
+Moffitt_GEO_array <- geneSort(Moffitt_GEO_array)
+TCGA_PAAD <- geneSort(TCGA_PAAD)
+# Get the list of gene symbols from datasets
+getGeneSymbols <- function(d) {
+symbols <- d$featInfo$SYMBOL
+return(symbols)
+}
+commonNames1 <- intersect(getGeneSymbols(Linehan_Seq), getGeneSymbols(COMPASS))
+commonNames2 <- intersect(getGeneSymbols(Moffitt_GEO_array), getGeneSymbols(TCGA_PAAD))
+commonNames <- intersect(commonNames1, commonNames2)
+matchCommonGenes <- function(d) {
+index <- match(commonNames, d$featinfo$SYMBOL)
+d$ex <- d$ex[index, ]
+d$featinfo <- d$featinfo[index, ]
+}
+d1 <- matchCommonGenes(Moffitt_GEO_array)
+dim(d1)
+names(d1)
+matchCommonGenes <- function(d) {
+index <- match(commonNames, d$featinfo$SYMBOL)
+d$ex <- d$ex[index, ]
+d$featInfo <- d$featInfo[index, ]
+return(d)
+}
+d1 <- matchCommonGenes(Moffitt_GEO_array)
+names(d1)
+dim(d1)
+dim(d1$ex)
+dim(Moffitt_GEO_array$ex)
+d1 <- matchCommonGenes(Linehan_Seq)
+dim(d1$ex)
+# Subset the datasets to ones of common genes
+matchCommonGenes <- function(d) {
+index <- match(commonNames, d$featinfo$SYMBOL)
+d$ex[ , ] <- d$ex[index, ]
+d$featInfo[ , ] <- d$featInfo[index, ]
+return(d)
+}
+d1 <- matchCommonGenes(Linehan_Seq)
+# Subset the datasets to ones of common genes
+matchCommonGenes <- function(d) {
+index <- match(commonNames, d$featinfo$SYMBOL)
+d$ex <- d$ex[index, ]
+d$featInfo <- d$featInfo[index, ]
+return(d)
+}
+d1 <- matchCommonGenes(Linehan_Seq)
+Linehan_Seq$featInfo
+# Subset the datasets to ones of common genes
+matchCommonGenes <- function(d) {
+index <- match(commonNames, d$featinfo$SYMBOL)
+d$ex <- d$ex[index, ]
+d$featInfo <- d$featInfo[index, ]
+return(d)
+}
+d1 <- matchCommonGenes(Linehan_Seq)
+d1$featInfo
+# Subset the datasets to ones of common genes
+matchCommonGenes <- function(d) {
+index <- match(commonNames, d$featinfo$SYMBOL)
+d$ex <- d$ex[index, ]
+d$featInfo <- d$featInfo[index, ]
+return(d)
+}
+d1 <- matchCommonGenes(Linehan_Seq)
+dim(d1$featInfo)
+d1$featInfo
+matchCommonGenes <- function(d) {
+index <- match(commonNames, d$featinfo$SYMBOL)
+k
+a
+head(1)
+d
+dd
+d
+d
+d
+d
+d
+head(commonNames)
+# Subset the datasets to ones of common genes
+matchCommonGenes <- function(d) {
+index <- match(commonNames, d$featInfo$SYMBOL)
+d$ex <- d$ex[index, ]
+d$featInfo <- d$featInfo[index, ]
+return(d)
+}
+d1 <- matchCommonGenes(Linehan_Seq)
+d1$featInfo$SYMBOL
+match(commonNames, Linehan_Seq$featInfo$SYMBOL)
+Linehan_Seq$featInfo[match(commonNames, Linehan_Seq$featInfo$SYMBOL)]
+Linehan_Seq$featInfo[match(commonNames, Linehan_Seq$featInfo$SYMBOL), ]
+# Subset the datasets to ones of common genes
+matchCommonGenes <- function(d) {
+index <- match(commonNames, d$featInfo$SYMBOL)
+d$ex <- d$ex[index, ]
+d$featInfo <- d$featInfo[index, ]
+return(d)
+}
+d1 <- matchCommonGenes(Linehan_Seq)
+dim(d1$featInfo)
+head(d1$featInfo)
+dim(d1$ex)
+head(d1$featInfo)
+d2 <- matchCommonGenes(COMPASS)
+d3 <- matchCommonGenes(Moffitt_GEO_array)
+d4 <- matchCommonGenes(TCGA_PAAD)
+dim(d1$ex) == dim(d2$ex)
+dim(d1$ex)[1] == dim(d2$ex)[1]
+d1$featInfo$SYMBOL == d3$featInfo
+d1$featInfo$SYMBOL == as.factor(d3$featInfo)
+d1$featInfo$SYMBOL == d2$featInfo$SYMBOL
+d2$featInfo$SYMBOL
+typeof(d1$featInfo$SYMBOL)
+typeof(d2$featInfo$SYMBOL)
+typeof(d3$featInfo)
+return(d)
+matchCommonGenesMo <- function(d) {
+index <- match(commonNames, d$featInfo$SYMBOL)
+d$ex <- d$ex[index, ]
+d$featInfo[ ,1] <- d$featInfo[index,1]
+return(d)
+}
+d3 <- matchCommonGenesMo(Moffitt_GEO_array)
+Moffitt_GEO_array$sampInfo[,1]
+head(Moffitt_GEO_array$featInfo[,])
+head(Moffitt_GEO_array$featInfo[,1])
+matchCommonGenesMo <- function(d) {
+index <- match(commonNames, d$featInfo$SYMBOL)
+d$ex <- d$ex[index, ]
+d$featInfo[ ,1] <- d$featInfo[index,1]
+return(d)
+}
+d3 <- matchCommonGenesMo(Moffitt_GEO_array)
+matchCommonGenesMo <- function(d) {
+index <- match(commonNames, d$featInfo$SYMBOL)
+d$ex <- d$ex[index, ]
+d$featInfo$SYMBOL[] <- d$featInfo$SYMBOL[index]
+return(d)
+}
+d3 <- matchCommonGenesMo(Moffitt_GEO_array)
+matchCommonGenesMo <- function(d) {
+index <- match(commonNames, d$featInfo$SYMBOL)
+d$ex <- d$ex[index, ]
+d$featInfo$SYMBOL <- d$featInfo$SYMBOL[index]
+return(d)
+}
+d3 <- matchCommonGenesMo(Moffitt_GEO_array)
+d3 <- matchCommonGenes(Moffitt_GEO_array)
+dim(d1$ex)
+dim(d2$ex)
+dim(d3$ex)
+dim(d4$ex)
+dim(d1$featInfo)
+dim(d2$featInfo)
+dim(d3$featInfo)
+head(d3$featInfo)
+length(d3$featInfo)
+dim(d4$featInfo)
+vec <- c(10, 12, 14, 16, 33, 3, 18.5, 14.5, 12.5, 12.1)
+order(vec)
+head(COMPASS$ex)
+head(order(COMPASS$ex))
+order_compass <- order(COMPASS$ex)
+dim(order_compass)
+length(order_compass)
+order_compass <- order(COMPASS$ex[,1])
+head(order_compass)
+order_compass <- order(COMPASS$ex[,])
+head(order_compass)
+source('~/Desktop/Senior Honors Thesis/code/data_processing.R')
+getwd()
+source('~/Desktop/Senior Honors Thesis/code/data_processing.R')
+library(tidyverse)
+typeof(d1)
+package?tibbble
+package?tibble
+d1[["ex"]]
+head(d1[["ex"]])
+head(d1[,"featInfo"])
+as_tibble(d1[["ex"]])
+as_tibble(d1)
+?rank
+length(colnames(Lin))
+source('~/Desktop/Senior Honors Thesis/code/data_processing.R')
+length(colnames(Lin))
+head(colnames(Lin))
+Lin
+View(Lin)
+View(Mof)
+as.tibble(Mof)
+as.list(Mof[[ex]])
+as.list(Mof$featInfo)
+as.list
+?as.list
+Mof$featInfo <- as.list(Mof$featInfo)
+View(Mof)
+View(Mof)
+length(colnames(Lin$sampInfo$patient_id))
+length(Lin$sampInfo$patient_id)
+length(Lin$sampInfo$)
+length(Lin$sampInfo$[1,])
+head(Lin$sampInfo$)
+head(Lin$sampInfo)
+dim(Lin$sampInfo)
+dim(Lin$sampInfo)[1]
+dim(lin$ex)
+dim(Lin$ex)
+head(Lin$ex[2])
+head(1:dim(Lin$ex)[2])
+length(1:dim(Lin$ex)[2])
+head(rank(Lin$ex[1,]))
+head(rank(Lin$ex[,1]))
+for (i in 1:dim(Lin$ex)[2]) {
+Lin$ex[,i] <- rank(Lin$ex[,i])
+}
+head(Lin$ex)
+rankedLin <- rankTransform(Lin)
+rankTransform <- function(d) {
+for (i in 1:dim(d$ex)[2]) {
+d$ex[,i] <- rank(d$ex[,i])
+}
+return(d)
+}
+rankedLin <- rankTransform(Lin)
+rankedCom <- rankTransform(Com)
+rankedMof <- rankTransform(Mof)
+rankedTcga <- rankTransform(Tcga)
+head(rankedMof$ex)
+wilcox.test(rankedLin$ex[1,])
+head(rankedLin$ex[1,])
+head(rankedLin$ex[1,][1])
+head(rankedLin$ex[[1,]][1])
+typeof(rankedLin$ex[1,])
+head(as.array(rankedLin$ex[1,]))
+head(as.array(rankedLin$ex[1,]))
+head(rankedLin$ex)
+head(rankedLin$ex[,1])
+head(rankedLin$ex[1,])
+head(rankedLin$ex[1,1])
+head(rankedLin$ex[1,2])
+head(rankedLin$ex[2,])
+head(as.vector(rankedLin$ex[2,]))
+head(as.vector(rankedLin$ex[1,]))
+head(as.vector(rankedLin$ex[1,][1]))
+wilcox.test(as.vector(rankedLin$ex[1,]))
+wilcox.test(c(1,2,3,4,5))
+head(data.matrix(rankedLin$ex[1,]))
+wilcox.test(data.matrix(rankedLin$ex[1,]))
+wilcox.test(data.matrix(rankedLin$ex[1:2,]))
+names(wilcox.test(data.matrix(rankedLin$ex[1,])))
+wilcox.test(data.matrix(rankedLin$ex[1,]))[[p.value]]
+wilcox.test(data.matrix(rankedLin$ex[1,]))[["p.value"]]
+df <- tibble(genename, pval)
+Mof$featInfo <- as.list(Mof$featInfo)
+colnames(Mof$featInfo) <- "SYMBOL"
+heAD(Mof$featInfo)
+head(Mof$featInfo)
+vector(0)
+}
+wilcoxTest <- function(d) {
+gg
