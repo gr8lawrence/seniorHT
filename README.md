@@ -5,4 +5,5 @@ Repository for the R project for my senior honors thesis. I will constantly add 
 ## Notes
 
 *The main file for this thesis [honors_thesis_markdown.Rmd](https://github.com/gr8lawrence/seniorHT/blob/master/honors_thesis_markdown.Rmd) provides a walkthrough of my work.
+
 *Datasets have not been uploaded.
