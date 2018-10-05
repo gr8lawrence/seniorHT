@@ -11,6 +11,7 @@ library(caret)
 library(parallel)
 library(ranger) # fast implementation of random forest
 library(e1071) # svm
+library(RMTL) # Multitask learning in R
 ```
 
 ## Datasets
@@ -180,32 +181,35 @@ dfTcga <- dfTcga[ ,1:df.length]
 ```
 
 ***
-## Learning
-### Vanilla random forest (RF) and supporting vector machine (SVM)
-We apply both standard implementations of RF (from `ranger` package) and SVM (from `e1071` package) to this learning problem. First, we train on single datasets and test the result on Aguirre-seq. Then we train on the combined datasets and test on Aguirre-seq again to compare whether learning from results across studies can improve the accuracy of prediction of our learning models.
+## Learning From Data
+### Learning by vanilla RF and SVM
+#### Overview
+We apply both standard implementations of RF (from `ranger` package) and SVM (from `e1071` package) to this learning problem. First, we choose a dataset and designate it as the reference set, or the "truth" set. Then we train on the remaining datasets ("learning sets") in two ways: training on a single learning set, or on a combined dataset consists of all learning sets. After each training, we test its predictive power on the reference set by the following measurements: (prediction) accuracy, sensitivity and specificity.
 
+#### Data Processing
 In order to proceed conveniently, we put all studies into a single vector, so we can run the learning programs iteratively through a for loop. First, we prepare the data
 ``` {r mlPrep}
 # Append the cluster result to each dataset
 dfAgu <- add_column(dfAgu, 
-                    cluster = rankedAgu$sampInfo$cluster.MT[!is.na(rankedAgu$sampInfo$cluster.MT)])
+                    Cluster = rankedAgu$sampInfo$cluster.MT[!is.na(rankedAgu$sampInfo$cluster.MT)])
 
 dfLin <- add_column(dfLin, 
-                    cluster = rankedLin$sampInfo$cluster.MT[!is.na(rankedLin$sampInfo$cluster.MT)])
+                    Cluster = rankedLin$sampInfo$cluster.MT[!is.na(rankedLin$sampInfo$cluster.MT)])
 
 dfCom <- add_column(dfCom, 
-                    cluster = rankedCom$sampInfo$cluster.MT[!is.na(rankedCom$sampInfo$cluster.MT)])
+                    Cluster = rankedCom$sampInfo$cluster.MT[!is.na(rankedCom$sampInfo$cluster.MT)])
 
 dfMof <- add_column(dfMof, 
-                    cluster = rankedMof$sampInfo$cluster.MT[!is.na(rankedMof$sampInfo$cluster.MT)])
+                    Cluster = rankedMof$sampInfo$cluster.MT[!is.na(rankedMof$sampInfo$cluster.MT)])
 
 dfTcga <- add_column(dfTcga, 
-                    cluster = rankedTcga$sampInfo$cluster.MT[!is.na(rankedTcga$sampInfo$cluster.MT)])
+                    Cluster = rankedTcga$sampInfo$cluster.MT[!is.na(rankedTcga$sampInfo$cluster.MT)])
 
 # The vector of all studies
 studies <- list(dfAgu, dfLin, dfCom, dfTcga, dfMof) 
 studies.names <- c("Aguirre-Seq", "Linehan-Seq", "COMPASS", "Moffitt Arrays", "TCGA-PAAD")
 ```
+#### Run the learning programs
 Now we run the RF and SVM in all combinations possible and output the measurements reflecting the larning results, i.e. accuracy, sensitivity, specificity.
 ``` {r learning1}
 # We create an empty tibble first to hold the leanring results
@@ -221,14 +225,14 @@ for (i in 1:len) {
   studies.min.1 <- studies[-i]
   studies.names.min.1 <- studies.names[-i]
   validation.set <- studies[[i]][ ,1:df.length]
-  truth <- studies[[i]]$cluster # The truth vector
+  truth <- studies[[i]]$Cluster # The truth vector
   
   # Run the RF (with 1500 trees) and SVM on one dataset, and validate on studies[i]
   for (j in 1:length(studies.min.1)) {
     learning.set <- studies.min.1[[j]]
     
     # Random Forest
-    rf <- ranger::ranger(cluster~., data = learning.set, num.trees = 1500)
+    rf <- ranger::ranger(Cluster~., data = learning.set, num.trees = 1500)
     pred <- predict(rf, validation.set)
     confusion.mat <- confusionMatrix(data = pred$predictions, 
                                      reference = truth)
@@ -243,7 +247,7 @@ for (i in 1:len) {
                                             signif(spe, digits = 4))
     
     # Supporting Vector Machine
-    supp.vec <- svm(cluster~., data = learning.set)
+    supp.vec <- svm(Cluster~., data = learning.set)
     pred <- predict(supp.vec, validation.set)
     confusion.mat <- confusionMatrix(data = pred, 
                                      reference = truth)
@@ -265,7 +269,7 @@ for (i in 1:len) {
   }
   
   # Random Forest
-  rf <- ranger::ranger(cluster~., data = learning.set, num.trees = 1500)
+  rf <- ranger::ranger(Cluster~., data = learning.set, num.trees = 1500)
   pred <- predict(rf, validation.set)
   confusion.mat <- confusionMatrix(data = pred$predictions, 
                                    reference = truth)
@@ -281,7 +285,7 @@ for (i in 1:len) {
                                             signif(spe, digits = 4))
   
   # Supporting Vector Machine
-  supp.vec <- svm(cluster~., data = learning.set)
+  supp.vec <- svm(Cluster~., data = learning.set, type = "C-classification")
   pred <- predict(supp.vec, validation.set)
   confusion.mat <- confusionMatrix(data = pred, 
                                    reference = truth)
@@ -300,7 +304,7 @@ for (i in 1:len) {
 
 print(learning.results, n = 2*length(studies)^2)
 ```
-### Result Visualization
+#### Visualization of results
 We draw a couple ROC curves based on the comparison of learning results above.
 ``` {r ROC curve}
 # Convert characters to doubles
