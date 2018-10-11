@@ -25,74 +25,87 @@ Five datasets containing RNA-seq data from different clinical trials are include
 * TCGA-PAAD
 
 ***
-
-## Data Pre-processing
-### Loading and subsetting
-```{r loadData, echo = FALSE}
-dataPath <- "/Users/gr8lawrence/Desktop/Senior Honors Thesis/datasets/"
-load(paste(dataPath, "Aguirre_seq_plus.RData", sep = ""))
-load(paste(dataPath, "COMPASS.2017_plus.RData", sep = ""))
-load(paste(dataPath, "Linehan_Seq_plus.RData", sep = ""))
-load(paste(dataPath, "Moffitt_GEO_array_plus.RData", sep = ""))
-load(paste(dataPath, "TCGA_PAAD_plus.RData", sep = ""))
-```
-
-We first set the randomization seed
+#### Seeding
+We first set the randomization seed to make this study reproducible
 ``` {r setSeed}
 set.seed(100)
 ```
 
-Our first goal is to subset the datasets so they only contain common genes. After we load the datasets, we sort the them by `SYMBOL` of genes in alphanumeric order.
+## Data Pre-processing
+### Loading and subsetting
+We can easily load the datasets to a list object and make it convenient for adding new or changing datasets.
+```{r loadData, echo = FALSE}
+dataPath <-
+  "/Users/gr8lawrence/Desktop/Senior Honors Thesis/datasets/"
+
+studies.names <-
+  c("Aguirre-Seq",
+    "Linehan-Seq",
+    "COMPASS",
+    "Moffitt Arrays",
+    "TCGA-PAAD") # Names of the studies in the same order as loading below
+
+# Load datasets
+load(paste(dataPath, "Aguirre_seq_plus.RData", sep = ""))
+load(paste(dataPath, "Linehan_Seq_plus.RData", sep = ""))
+load(paste(dataPath, "COMPASS.2017_plus.RData", sep = ""))
+load(paste(dataPath, "Moffitt_GEO_array_plus.RData", sep = ""))
+load(paste(dataPath, "TCGA_PAAD_plus.RData", sep = ""))
+
+# Incorporate all datasets into a single list object
+studies.df <-
+  list(
+    Aguirre_seq_plus,
+    Linehan_Seq_plus,
+    COMPASS.2017_plus,
+    Moffitt_GEO_array_plus,
+    TCGA_PAAD_plus
+  )
+
+num.studies <- length(studies.df) # Number of datasets
+```
+Here, we first subset the datasets so they only contain common genes. After we load the datasets, we sort the them by `SYMBOL` of genes in alphanumeric order. Then we find out the gene names all datasets have in common and store them in the vector ``
 ```{r sortGene}
 # Sort gene in alphanumeric order
-geneSort <- function(d) { # d is a dataset
+geneSort <- function(d) {
+  # d is a dataset
   index <- order(d$featInfo$SYMBOL)
-  d$ex[ , ] <- d$ex[index, ] 
-  d$featInfo[ , ] <- d$featInfo[index, ]
+  d$ex[,] <- d$ex[index,]
+  d$featInfo[,] <- d$featInfo[index,]
   return(d)
 }
 
-Aguirre_seq_plus <- geneSort(Aguirre_seq_plus)
-COMPASS_plus <- geneSort(COMPASS.2017_plus)
-Linehan_Seq_plus <- geneSort(Linehan_Seq_plus)
-Moffitt_GEO_array_plus <- geneSort(Moffitt_GEO_array_plus)
-TCGA_PAAD_plus <- geneSort(TCGA_PAAD_plus)
-```
+for (i in 1:num.studies) {
+  studies.df[[i]] <- geneSort(studies.df[[i]])
+}
 
-After we called the above functions on all five datasets, we need to find the common genes across them by intersecting their `SYMBOL`.
-
-``` {r findCommonGene}
-# Get the list of gene symbols from datasets
+# Obtain the list of gene symbols from datasets
 getGeneSymbols <- function(d) {
   symbols <- d$featInfo$SYMBOL
   return(symbols)
 } 
 
-commonNames1 <- intersect(getGeneSymbols(Linehan_Seq_plus), getGeneSymbols(COMPASS.2017_plus))
-commonNames2 <- intersect(getGeneSymbols(Moffitt_GEO_array_plus), getGeneSymbols(TCGA_PAAD_plus))
-commonNames3 <- intersect(commonNames1, commonNames2)
-commonNames <- intersect(commonNames3, getGeneSymbols(Aguirre_seq_plus))
-```
+# Find the common genes across all datasets
+commonGeneNames <- getGeneSymbols(studies.df[[1]])
+for (i in 2:num.studies) {
+  commonGeneNames <- intersect(commonGeneNames, getGeneSymbols(studies.df[[i]]))
+}
 
-We can see the number of common genes is `r length(commonNames)`.  
-Next, we subset our datasets so they only contain those common genes.
+num.common.genes <- length(commonGeneNames) # Number of common genes
+```
+We can see the number of common genes is `r num.common.genes`. Next, we subset our datasets so they only contain those common genes.
 ``` {r subsetting}
 # Subset the datasets to ones of common genes
 matchCommonGenes <- function(d) {
-  index <- match(commonNames, d$featInfo$SYMBOL)
+  index <- match(commonGeneNames, d$featInfo$SYMBOL)
   d$ex <- d$ex[index, ]
   d$featInfo <- d$featInfo[index, ]
   return(d)
 }
 
-Agu <- matchCommonGenes(Aguirre_seq_plus)
-Lin <- matchCommonGenes(Linehan_Seq_plus) 
-Com <- matchCommonGenes(COMPASS.2017_plus)
-Mof <- matchCommonGenes(Moffitt_GEO_array_plus)
-Tcga <- matchCommonGenes(TCGA_PAAD_plus)
-
-# We extract the names of the common genes fo future use
-geneNames <- Agu$featInfo$SYMBOL
+for (i in 1:num.studies) {
+  studies.df[[i]] <- matchCommonGenes(studies.df[[i]])
+}
 ```
 
 ### Rank transformation
@@ -106,78 +119,105 @@ rankTransform <- function(d) {
   return(d)
 }
 
-rankedAgu <- rankTransform(Agu)
-rankedLin <- rankTransform(Lin)
-rankedCom <- rankTransform(Com)
-rankedMof <- rankTransform(Mof)
-rankedTcga <- rankTransform(Tcga)
+ranked.studies.df <- list()
+for (i in 1:num.studies) {
+  ranked.studies.df[[i]] <- rankTransform(studies.df[[i]])
+}
 ```
 
-### Finding the differentially expressed in basal pancreatic cancer
-In order to do so, we first need to pool the five datasets and remove the observations with unknown classification (`NA` in `cluster.MT`). 
-``` {r poolDataset}
+### Dimension Reduction
+In this part, we reduce the dimensionality of the datasets to save computational time and power by including only the highly differentially expressed genes between two identified cancer subtypes. We follow the following procedures to achieve this.
+
+#### Finding the differentially expressed genes in basal pancreatic cancer
+We first extract the ranks of gene expressions from our datasets and remove the observations with unknown classification (`NA` in `cluster.MT`). 
+``` {r extractGeneExpression}
 # Extract ranked expression from each dataset, remove observations of unknown cancer classification, and write them into tibbles
 extractData <- function(d) {
   df <- as_tibble(t(d$ex))
-  colnames(df) <- make.names(geneNames) # Get all gene names into correct name formats
-  df <- df[!is.na(d$sampInfo$cluster.MT), ]
-  return(add_column(df, cluster = d$sampInfo$cluster.MT[!is.na(d$sampInfo$cluster.MT)]))
+  colnames(df) <- make.names(commonGeneNames) # Get all gene names into correct name formats
+  df <- df[!is.na(d$sampInfo$cluster.MT),] # Remove observations with unknown subtype
+  return(add_column(df, class = d$sampInfo$cluster.MT[!is.na(d$sampInfo$cluster.MT)]))
 }
 
-dfAgu <- extractData(rankedAgu)
-dfLin <- extractData(rankedLin)
-dfCom <- extractData(rankedCom) 
-dfMof <- extractData(rankedMof)
-dfTcga <- extractData(rankedTcga)
-
-# Combined the five (four) expression datasets
-pooled.df <- rbind(dfAgu, dfLin, dfCom, dfMof, dfTcga)
+expression.df <- list()
+for (i in 1:num.studies) {
+  expression.df[[i]] <- extractData(ranked.studies.df[[i]])
+}
 ```
-Then we separate the pooled datasets into two subsets of observations based on their `cluster.MT` value (either `basal` or `classical`). 
-``` {r subsettingPooledData}
-pooled.basal <-pooled.df[pooled.df$cluster == "basal", ]
-pooled.classical <-pooled.df[pooled.df$cluster == "classical", ]
+Then we separate the each expression dataset into two subsets of observations based on their `cluster.MT` value (either `basal` or `classical`). 
+``` {r subsettingExpressionData}
+expression.basal.df <- list()
+expression.classical.df <- list()
+for (i in 1:num.studies) {
+  expression.basal.df[[i]] <- expression.df[[i]][expression.df[[i]]$class == "basal", ]
+  expression.classical.df[[i]] <- expression.df[[i]][expression.df[[i]]$class == "classical", ]
+}
 ```
-Then we conduct a Wilcoxon Rank Sum test for each gene to find out the consistently differentially expressed genes in the `basal` subtype across all studies.
+Then we conduct a Wilcoxon Rank Sum test on each gene for each dataset, and then sum up each gene's log-10 p-values to find out the consistently differentially expressed genes in the `basal` subtype across all studies.
 ``` {r wilcoxTestForDiffExpressedGenes}
-basal.matrix <- data.matrix(pooled.basal[ ,1:length(geneNames)])
-classical.matrix <- data.matrix(pooled.classical[ ,1:length(geneNames)])
-gene.pvals <- tibble(name = make.names(geneNames),
-                     pval = rep(0, length(geneNames)))
-  
-for (i in 1:length(geneNames)) {
-  basal.vector <- basal.matrix[ ,i]
-  classical.vector <- classical.matrix[ ,i]
-  gene.pvals$pval[i] <- wilcox.test(basal.vector, classical.vector)[["p.value"]]
+# Transforming dataset to matrices so we can conduct statistical tests (Wilcoxon rank sum test)
+basal.matrices <- list()
+classical.matrices <- list()
+
+for (i in 1:num.studies) {
+  basal.matrices[[i]] <- data.matrix(expression.basal.df[[i]][ ,1:num.common.genes])
+  classical.matrices[[i]] <- data.matrix(expression.classical.df[[i]][ ,1:num.common.genes])
 }
 
-gene.pvals
+# Build up empty list to contain the p-values of single tests (in one dataset) for each gene
+gene.pvals <- list()
+for (i in 1:num.studies){
+  gene.pvals[[i]] <- tibble(name = make.names(commonGeneNames),
+                     pval = rep(0, num.common.genes))
+}
+
+for (i in 1:num.studies) {
+  for (j in 1:num.common.genes) {
+    basal.vector <- basal.matrices[[i]][ ,j]
+    classical.vector <- classical.matrices[[i]][ ,j]
+    gene.pvals[[i]]$pval[j] <- wilcox.test(basal.vector, classical.vector, exact = FALSE)[["p.value"]]
+  }
+}
+
+# Compute each gene's sum of log-10 p-values
+gene.sum.log.pvals <- tibble(name = make.names(commonGeneNames),
+                     pval = rep(0, length(commonGeneNames)))
+
+for (i in 1:num.common.genes) {
+  gene.pvals.vector <- vector()
+  for (j in 1:num.studies) {
+    gene.pvals.vector[j] = gene.pvals[[j]]$pval[i]
+  }
+  log.10.gene.pvals <- log10(gene.pvals.vector)
+  gene.sum.log.pvals$pval[i] <- sum(log.10.gene.pvals)
+}
+
+gene.sum.log.pvals
 ```
 Now we rank the genes in terms of their p-values. 
 ``` {r sortGene2}
-index <- order(gene.pvals$pval) # Give the sorted indexes of genes
+index <- order(gene.sum.log.pvals$pval) # Give the sorted indexes of genes
 
 reorderGene <- function(df) {
   df.colnames <- colnames(df)
-  df[ ,1:length(geneNames)] <- data.matrix(df[ ,index])
+  df[ ,1:length(commonGeneNames)] <- data.matrix(df[ ,index])
   colnames(df) <- df.colnames[index]
   return(as_tibble(df))
 }
 
-dfAgu <- reorderGene(dfAgu)
-dfLin <- reorderGene(dfLin)
-dfCom <- reorderGene(dfCom)
-dfMof <- reorderGene(dfMof)
-dfTcga <- reorderGene(dfTcga)
+for (i in 1:num.studies) {
+  expression.df[[i]] <- reorderGene(expression.df[[i]])  
+}
 ```
-Then we subset the datasets to keep only the first `r ceiling(length(geneNames)/10)` most differentially expressed genes.
+Then we subset the datasets to keep only the first `r ceiling(length(commonGeneNames)/5)` most differentially expressed genes, and append the `cluster.MT` of the observations at the end to prepare for learning that is coming next.
 ``` {r subsetting2}
-df.length <- ceiling(length(geneNames)/10)
-dfAgu <- dfAgu[ ,1:df.length]
-dfLin <- dfLin[ ,1:df.length]
-dfCom <- dfCom[ ,1:df.length]
-dfMof <- dfMof[ ,1:df.length]
-dfTcga <- dfTcga[ ,1:df.length]
+df.length <- ceiling(length(commonGeneNames)/5)
+
+learning.df <- list()
+for (i in 1:num.studies) {
+ learning.df[[i]] <- add_column(expression.df[[i]][ , 1:df.length], 
+                                class = ranked.studies.df[[i]]$sampInfo$cluster.MT[!is.na(ranked.studies.df[[i]]$sampInfo$cluster.MT)]) 
+}
 ```
 
 ***
@@ -186,32 +226,11 @@ dfTcga <- dfTcga[ ,1:df.length]
 #### Overview
 We apply both standard implementations of RF (from `ranger` package) and SVM (from `e1071` package) to this learning problem. First, we choose a dataset and designate it as the reference set, or the "truth" set. Then we train on the remaining datasets ("learning sets") in two ways: training on a single learning set, or on a combined dataset consists of all learning sets. After each training, we test its predictive power on the reference set by the following measurements: (prediction) accuracy, sensitivity and specificity.
 
-#### Data Processing
-In order to proceed conveniently, we put all studies into a single vector, so we can run the learning programs iteratively through a for loop. First, we prepare the data
-``` {r mlPrep}
-# Append the cluster result to each dataset
-dfAgu <- add_column(dfAgu, 
-                    Cluster = rankedAgu$sampInfo$cluster.MT[!is.na(rankedAgu$sampInfo$cluster.MT)])
-
-dfLin <- add_column(dfLin, 
-                    Cluster = rankedLin$sampInfo$cluster.MT[!is.na(rankedLin$sampInfo$cluster.MT)])
-
-dfCom <- add_column(dfCom, 
-                    Cluster = rankedCom$sampInfo$cluster.MT[!is.na(rankedCom$sampInfo$cluster.MT)])
-
-dfMof <- add_column(dfMof, 
-                    Cluster = rankedMof$sampInfo$cluster.MT[!is.na(rankedMof$sampInfo$cluster.MT)])
-
-dfTcga <- add_column(dfTcga, 
-                    Cluster = rankedTcga$sampInfo$cluster.MT[!is.na(rankedTcga$sampInfo$cluster.MT)])
-
-# The vector of all studies
-studies <- list(dfAgu, dfLin, dfCom, dfTcga, dfMof) 
-studies.names <- c("Aguirre-Seq", "Linehan-Seq", "COMPASS", "Moffitt Arrays", "TCGA-PAAD")
-```
 #### Run the learning programs
 Now we run the RF and SVM in all combinations possible and output the measurements reflecting the larning results, i.e. accuracy, sensitivity, specificity.
 ``` {r learning1}
+studies <- learning.df
+
 # We create an empty tibble first to hold the leanring results
 learning.results <- tibble(learning.set = rep('NA', 2*length(studies)^2), 
                            validation.set = rep('NA', 2*length(studies)^2), 
@@ -224,81 +243,96 @@ len <- length(studies)
 for (i in 1:len) {
   studies.min.1 <- studies[-i]
   studies.names.min.1 <- studies.names[-i]
-  validation.set <- studies[[i]][ ,1:df.length]
-  truth <- studies[[i]]$Cluster # The truth vector
+  validation.set <- studies[[i]][, 1:df.length]
+  truth <- studies[[i]]$class # The truth vector
   
   # Run the RF (with 1500 trees) and SVM on one dataset, and validate on studies[i]
   for (j in 1:length(studies.min.1)) {
     learning.set <- studies.min.1[[j]]
     
     # Random Forest
-    rf <- ranger::ranger(Cluster~., data = learning.set, num.trees = 1500)
+    rf <-
+      ranger::ranger(class ~ ., data = learning.set, num.trees = 1500)
     pred <- predict(rf, validation.set)
-    confusion.mat <- confusionMatrix(data = pred$predictions, 
+    confusion.mat <- confusionMatrix(data = pred$predictions,
                                      reference = truth)
     accu <- confusion.mat$overall[["Accuracy"]]
     sen <- confusion.mat$byClass[["Sensitivity"]]
     spe <- confusion.mat$byClass[["Specificity"]]
-    learning.results[10*(i - 1) + 2*j - 1, ] <- c(studies.names.min.1[j],
-                                            studies.names[i],
-                                            "random forest",
-                                            signif(accu, digits = 4), 
-                                            signif(sen, digits = 4), 
-                                            signif(spe, digits = 4))
+    learning.results[10 * (i - 1) + 2 * j - 1,] <-
+      c(
+        studies.names.min.1[j],
+        studies.names[i],
+        "random forest",
+        signif(accu, digits = 4),
+        signif(sen, digits = 4),
+        signif(spe, digits = 4)
+      )
     
     # Supporting Vector Machine
-    supp.vec <- svm(Cluster~., data = learning.set)
+    supp.vec <- svm(class ~ ., data = learning.set)
     pred <- predict(supp.vec, validation.set)
-    confusion.mat <- confusionMatrix(data = pred, 
+    confusion.mat <- confusionMatrix(data = pred,
                                      reference = truth)
     accu <- confusion.mat$overall[["Accuracy"]]
     sen <- confusion.mat$byClass[["Sensitivity"]]
     spe <- confusion.mat$byClass[["Specificity"]]
-    learning.results[10*(i - 1) + 2*j, ] <- c(studies.names.min.1[j],
-                                            studies.names[i],
-                                            "SVM",
-                                            signif(accu, digits = 4), 
-                                            signif(sen, digits = 4), 
-                                            signif(spe, digits = 4))
+    learning.results[10 * (i - 1) + 2 * j,] <-
+      c(
+        studies.names.min.1[j],
+        studies.names[i],
+        "SVM",
+        signif(accu, digits = 4),
+        signif(sen, digits = 4),
+        signif(spe, digits = 4)
+      )
   }
   
   # Run the RF and SVM on combined datasets
   learning.set <- studies.min.1[[1]]
-  for (k in 1:(length(studies.min.1)-1)){
-  learning.set <- rbind(learning.set, studies.min.1[[1 + k]])
+  for (k in 1:(length(studies.min.1) - 1)) {
+    learning.set <- rbind(learning.set, studies.min.1[[1 + k]])
   }
   
   # Random Forest
-  rf <- ranger::ranger(Cluster~., data = learning.set, num.trees = 1500)
+  rf <-
+    ranger::ranger(class ~ ., data = learning.set, num.trees = 1500)
   pred <- predict(rf, validation.set)
-  confusion.mat <- confusionMatrix(data = pred$predictions, 
+  confusion.mat <- confusionMatrix(data = pred$predictions,
                                    reference = truth)
   accu <- confusion.mat$overall[["Accuracy"]]
   sen <- confusion.mat$byClass[["Sensitivity"]]
   spe <- confusion.mat$byClass[["Specificity"]]
-  learning.results[10*i - 1, ] <- c(paste("comb. minus", studies.names[i], 
-                                                      sep = " "),
-                                            studies.names[i],
-                                            "random forest",
-                                            signif(accu, digits = 4), 
-                                            signif(sen, digits = 4), 
-                                            signif(spe, digits = 4))
+  learning.results[10 * i - 1,] <-
+    c(
+      paste("comb. minus", studies.names[i],
+            sep = " "),
+      studies.names[i],
+      "random forest",
+      signif(accu, digits = 4),
+      signif(sen, digits = 4),
+      signif(spe, digits = 4)
+    )
   
   # Supporting Vector Machine
-  supp.vec <- svm(Cluster~., data = learning.set, type = "C-classification")
+  supp.vec <-
+    svm(class ~ ., data = learning.set, type = "C-classification")
   pred <- predict(supp.vec, validation.set)
-  confusion.mat <- confusionMatrix(data = pred, 
+  confusion.mat <- confusionMatrix(data = pred,
                                    reference = truth)
   accu <- confusion.mat$overall[["Accuracy"]]
   sen <- confusion.mat$byClass[["Sensitivity"]]
   spe <- confusion.mat$byClass[["Specificity"]]
-  learning.results[10*i, ] <- c(paste("comb. minus", studies.names[i], 
-                                                      sep = " "),
-                                            studies.names[i],
-                                            "SVM",
-                                            signif(accu, digits = 4), 
-                                            signif(sen, digits = 4), 
-                                            signif(spe, digits = 4))
+  learning.results[10 * i,] <-
+    c(
+      paste("comb. minus", studies.names[i],
+            sep = " "),
+      studies.names[i],
+      "SVM",
+      signif(accu, digits = 4),
+      signif(sen, digits = 4),
+      signif(spe, digits = 4)
+    )
   
 }
 
@@ -337,7 +371,7 @@ ggplot(data = roc.data, aes(x = false.positive, y = sensitivity, col = validatio
   ggtitle("ROC Curve For Learning Results", subtitle = "Comparison Between Methods") + 
   xlab("1 - Specificity") +
   ylab("Sensitivity") +
-  theme_classic() + facet_grid( . ~ method) +
+  theme_classic() + facet_grid(validation.set ~ method, scales = "free") +
   scale_color_discrete(name = "Validation Dataset") +
   scale_shape_discrete(name = "Learning Method")
 
@@ -347,7 +381,7 @@ ggplot(data = roc.data, aes(x = false.positive, y = sensitivity, col = validatio
   ggtitle("ROC Curve For Learning Results", subtitle = "Comparison Between Types of Training Sets") + 
   xlab("1 - Specificity") +
   ylab("Sensitivity") +
-  theme_classic() + facet_grid( . ~ Type) +
+  theme_classic() + facet_grid(validation.set ~ Type, scales = "free") +
   scale_color_discrete(name = "Validation Dataset")
 
 ggplot(data = roc.data, aes(x = false.positive, y = sensitivity, col = validation.set)) +
@@ -390,3 +424,6 @@ ggplot(data = roc.data, aes(x = validation.set.type, y = accuracy, fill = valida
   theme(axis.text.x = element_text(vjust = 0.5)) +
   scale_fill_discrete(name = "Type of Studies")
 ```
+
+### Multi-task Learning
+In this section, we explore our datasets with learning programs from the package with implementations of multi-task learning `RMTL` in R.
