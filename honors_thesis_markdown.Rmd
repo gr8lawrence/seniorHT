@@ -252,9 +252,9 @@ for (i in 1:len) {
     
     # Random Forest
     rf <-
-      ranger::ranger(class ~ ., data = learning.set, num.trees = 1500)
+      ranger::ranger(class ~ ., data = learning.set, num.trees = 1500, probability = TRUE)
     pred <- predict(rf, validation.set)
-    confusion.mat <- confusionMatrix(data = pred$predictions,
+    confusion.mat <- confusionMatrix(data = as.factor(ifelse(pred$predictions[,1] > 0.5, "basal", "classical")),
                                      reference = truth)
     accu <- confusion.mat$overall[["Accuracy"]]
     sen <- confusion.mat$byClass[["Sensitivity"]]
@@ -270,8 +270,10 @@ for (i in 1:len) {
       )
     
     # Supporting Vector Machine
-    supp.vec <- svm(class ~ ., data = learning.set)
-    pred <- predict(supp.vec, validation.set)
+    classical.basal.ratio = sum(learning.set$class == "classical")/sum(learning.set$class == "basal")
+    supp.vec <-
+    svm(class ~ ., data = learning.set, class.weights = c("basal" = classical.basal.ratio, "classical" = 0.1), probability = TRUE)
+    pred <- predict(supp.vec, validation.set, probability = TRUE)
     confusion.mat <- confusionMatrix(data = pred,
                                      reference = truth)
     accu <- confusion.mat$overall[["Accuracy"]]
@@ -296,9 +298,9 @@ for (i in 1:len) {
   
   # Random Forest
   rf <-
-    ranger::ranger(class ~ ., data = learning.set, num.trees = 1500)
+    ranger::ranger(class ~ ., data = learning.set, num.trees = 1500, probability = TRUE)
   pred <- predict(rf, validation.set)
-  confusion.mat <- confusionMatrix(data = pred$predictions,
+  confusion.mat <- confusionMatrix(data = as.factor(ifelse(pred$predictions[,1] > 0.5, "basal", "classical")), 
                                    reference = truth)
   accu <- confusion.mat$overall[["Accuracy"]]
   sen <- confusion.mat$byClass[["Sensitivity"]]
@@ -315,9 +317,10 @@ for (i in 1:len) {
     )
   
   # Supporting Vector Machine
+  classical.basal.ratio = sum(learning.set$class == "classical")/sum(learning.set$class == "basal")
   supp.vec <-
-    svm(class ~ ., data = learning.set, type = "C-classification")
-  pred <- predict(supp.vec, validation.set)
+    svm(class ~ ., data = learning.set, class.weights = c("basal" = classical.basal.ratio, "classical" = 1), probability = TRUE)
+  pred <- predict(supp.vec, validation.set, probability = TRUE)
   confusion.mat <- confusionMatrix(data = pred,
                                    reference = truth)
   accu <- confusion.mat$overall[["Accuracy"]]
