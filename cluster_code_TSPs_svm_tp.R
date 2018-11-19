@@ -205,13 +205,12 @@ ind_fun = function(train_sub, TSPs){
     indmat[,i] = (train_sub[p1,] > train_sub[p2,])^2
   }
   indmat = as.tibble(indmat)
-  colnames(indmat) = apply(TSPs, 1, paste, collapse = "/")
-  rownames(indmat) = colnames(train_sub)
+  colnames(indmat) = make.names(apply(TSPs, 1, paste, collapse = "/"))
   return(indmat)
 }
 
 studies <- lapply(transposed.learning.df, ind_fun, TSPs = TSPs.mat) # apply ind_fun to every member of the learning datasets
-new.df.length <- dim(studies[[1]])[2]
+colnew.df.length <- dim(studies[[1]])[2]
 for (i in 1:num.studies) {
   studies[[i]] <- add_column(studies[[i]][ , ], 
                                  class = ranked.studies.df[[i]]$sampInfo$cluster.MT[!is.na(ranked.studies.df[[i]]$sampInfo$cluster.MT)]) 
