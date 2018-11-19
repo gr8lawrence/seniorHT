@@ -240,12 +240,14 @@ for (i in 1:len) {
     # Use a grid search to find the best (C, gamma) pair
     # Cross-validation generate 40 SVMs  
     tune <- tune.svm(class ~ ., data = learning.set, 
+                     scale = FALSE,
                      gamma = c(10^-5, 10^-3, 10^-1, 10^1, 10^3), 
                      cost = c(10^-3, 10^-1, 10^1, 10^3, 10^5)) 
     classical.basal.ratio = sum(learning.set$class == "classical")/sum(learning.set$class == "basal")
     supp.vec <-
       svm(class ~ ., data = learning.set, 
           class.weights = c("basal" = classical.basal.ratio, "classical" = 0.1), 
+          scale = FALSE,
           gamma = tune$best.parameters$gamma, 
           cost = tune$best.parameters$cost, 
           probability = TRUE)
@@ -273,12 +275,14 @@ for (i in 1:len) {
     learning.set <- rbind(learning.set, studies.min.1[[1 + k]])
   }
   tune <- tune.svm(class ~ ., data = learning.set, 
+                   scale = FALSE,
                    gamma = c(10^-5, 10^-3, 10^-1, 10^1, 10^3), 
                    cost = c(10^-3, 10^-1, 10^1, 10^3, 10^5)) 
   classical.basal.ratio = sum(learning.set$class == "classical")/sum(learning.set$class == "basal")
   supp.vec <-
     svm(class ~ ., data = learning.set, 
         class.weights = c("basal" = classical.basal.ratio, "classical" = 1), 
+        scale = FALSE,
         gamma = tune$best.parameters$gamma,
         cost = tune$best.parameters$cost,
         probability = TRUE)
