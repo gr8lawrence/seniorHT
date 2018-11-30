@@ -4,16 +4,15 @@ library(e1071) # svm
 set.seed(100)
 
 dataPath <-
-  #"/Users/gr8lawrence/Desktop/Senior Honors Thesis/datasets/"
-  "/nas/longleaf/home/tianyi96/datasets_used/" # change this line to your local dataset directory
+  "/Users/gr8lawrence/Desktop/Senior Honors Thesis/datasets/"
+  #"/nas/longleaf/home/tianyi96/datasets_used/" # change this line to your local dataset directory
 
-studies.names <-
-  c("Aguirre-Seq",
-    "Linehan-Seq",
-    "COMPASS",
-    "Moffitt Arrays",
-    "TCGA-PAAD") # Names of the studies in the same order as loading below
-
+studies.names <- c("Aguirre-Seq",
+                   "Linehan-Seq",
+                   "COMPASS",
+                   "Moffitt Arrays",
+                   "TCGA-PAAD") # Names of the studies in the same order as loading below 
+ 
 # Load datasets
 load(paste(dataPath, "Aguirre_seq_plus.RData", sep = ""))
 load(paste(dataPath, "Linehan_Seq_plus.RData", sep = ""))
@@ -22,14 +21,11 @@ load(paste(dataPath, "Moffitt_GEO_array_plus.RData", sep = ""))
 load(paste(dataPath, "TCGA_PAAD_plus.RData", sep = ""))
 
 # Incorporate all datasets into a single list object
-studies.df <-
-  list(
-    Aguirre_seq_plus,
-    Linehan_Seq_plus,
-    COMPASS.2017_plus,
-    Moffitt_GEO_array_plus,
-    TCGA_PAAD_plus
-  )
+studies.df <- list(Aguirre_seq_plus, 
+                   Linehan_Seq_plus,
+                   COMPASS.2017_plus,
+                   Moffitt_GEO_array_plus,
+                   TCGA_PAAD_plus)
 
 num.studies <- length(studies.df) # Number of datasets
 
@@ -42,9 +38,7 @@ geneSort <- function(d) {
   return(d)
 }
 
-for (i in 1:num.studies) {
-  studies.df[[i]] <- geneSort(studies.df[[i]])
-}
+studies.df <- lapply(studies.df, geneSort)
 
 # Obtain the list of gene symbols from datasets
 getGeneSymbols <- function(d) {
@@ -68,22 +62,14 @@ matchCommonGenes <- function(d) {
   return(d)
 }
 
-for (i in 1:num.studies) {
-  studies.df[[i]] <- matchCommonGenes(studies.df[[i]])
-}
+studies.df <- lapply(studies.df, matchCommonGenes)
 
-# Rank transform the common genes for each sample
 rankTransform <- function(d) {
-  for (i in 1:dim(d$ex)[2]) {
-    d$ex[,i] <- rank(d$ex[,i])
-  }
+  apply(d$ex, 2, rank)
   return(d)
 }
 
-ranked.studies.df <- list()
-for (i in 1:num.studies) {
-  ranked.studies.df[[i]] <- rankTransform(studies.df[[i]])
-}
+ranked.studies.df <- lapply(studies.df, rankTransform)
 
 # Extract ranked expression from each dataset, remove observations of unknown cancer classification, and write them into tibbles
 extractData <- function(d) {
@@ -93,17 +79,11 @@ extractData <- function(d) {
   return(add_column(df, class = d$sampInfo$cluster.MT[!is.na(d$sampInfo$cluster.MT)]))
 }
 
-expression.df <- list()
-for (i in 1:num.studies) {
-  expression.df[[i]] <- extractData(ranked.studies.df[[i]])
-}
+expression.df <- lapply(ranked.studies.df, extractData)
 
-expression.basal.df <- list()
-expression.classical.df <- list()
-for (i in 1:num.studies) {
-  expression.basal.df[[i]] <- expression.df[[i]][expression.df[[i]]$class == "basal", ]
-  expression.classical.df[[i]] <- expression.df[[i]][expression.df[[i]]$class == "classical", ]
-}
+# Separating expression data for different subtypeså
+expression.basal.df <- lapply(expression.df, function(x) x[x$class == "basal", ])
+expression.classical.df <- lapply(expression.df, function(x) x[x$class == "classical", ])
 
 # Transforming dataset to matrices so we can conduct statistical tests (Wilcoxon rank sum test)
 basal.matrices <- list()
@@ -151,17 +131,11 @@ reorderGene <- function(df) {
   return(as_tibble(df))
 }
 
-for (i in 1:num.studies) {
-  expression.df[[i]] <- reorderGene(expression.df[[i]])  
-}
+expression.df <- lapply(expression.df, reorderGene)
 
-df.length <- 10 # We will only keep 500 genes for out purpose
 
-learning.df <- list()
-for (i in 1:num.studies) {
-  learning.df[[i]] <- add_column(expression.df[[i]][ , 1:df.length], 
-                                 class = ranked.studies.df[[i]]$sampInfo$cluster.MT[!is.na(ranked.studies.df[[i]]$sampInfo$cluster.MT)]) 
-}
+# This variable indicates how many genes of top differential expression are kept to make TSPs
+df.length <- 20 # We will only keep 500 genes for out purpose
 
 # Customary function to transpose a tibble while preserves the names
 transpose_tibble <- function(tb) {
@@ -172,11 +146,11 @@ transpose_tibble <- function(tb) {
   return(tr.tibble)
 }
 
-transposed.learning.df <- sapply(learning.df, transpose_tibble)
+transposed.learning.df <- lapply(expression.df, transpose_tibble)
 
 # Now make the TSPs for the gene pairs below
 
-gene.subset.names <- colnames(learning.df[[1]])[1:df.length]
+gene.subset.names <- colnames(expression.df[[1]])[1:df.length]
 TSPs.mat <- matrix(0, nrow = df.length*(df.length - 1)/2, ncol = 2)
 
 range <- df.length - 1
@@ -209,11 +183,28 @@ ind_fun = function(train_sub, TSPs){
   return(indmat)
 }
 
-studies <- lapply(transposed.learning.df, ind_fun, TSPs = TSPs.mat) # apply ind_fun to every member of the learning datasets
-colnew.df.length <- dim(studies[[1]])[2]
+# apply ind_fun to every member of the learning datasets
+studies <- lapply(transposed.learning.df, ind_fun, TSPs = TSPs.mat) 
+
+# Now determine which TSPs does not vary across different subtypes (always 0 or 1 in).
+all_1_inds <- lapply(studies, function(x) which(apply(x, 2, sum) == (dim(x)[1])))
+all_0_inds <- lapply(studies, function(x) which(apply(x, 2, sum) == 0))
+
+# Find out the unique indexes of those columns
+unique_inds <-  unique(c(unlist(all_1_inds), unlist(all_0_inds)))
+
+# remove those columns from the studies
+studies <- lapply(studies, function(x) x[ ,-unique_inds])
+
+# scale the data to mean 0 and variance 1 using the Standardize function
+studies <- lapply(studies, function(x) as.tibble(apply(x, 2, scale)))
+
+# This is the same as the total number of TSPs in the final training data
+new.df.length <- dim(studies[[1]])[2]
+
+# Append the classification to the training data
 for (i in 1:num.studies) {
-  studies[[i]] <- add_column(studies[[i]][ , ], 
-                                 class = ranked.studies.df[[i]]$sampInfo$cluster.MT[!is.na(ranked.studies.df[[i]]$sampInfo$cluster.MT)]) 
+  studies[[i]] <- add_column(studies[[i]], class = ranked.studies.df[[i]]$sampInfo$cluster.MT[!is.na(ranked.studies.df[[i]]$sampInfo$cluster.MT)]) 
 }
 
 # We create an empty tibble first to hold the leanring results
@@ -224,9 +215,8 @@ learning.results <- tibble(learning.set = rep('NA', length(studies)^2),
                            accuracy = rep(0, length(studies)^2), 
                            sensitivity = rep(0, length(studies)^2), 
                            specificity = rep(0, length(studies)^2))
-len <- length(studies)
 
-for (i in 1:len) {
+for (i in 1:num.studies) {
   studies.min.1 <- studies[-i]
   studies.names.min.1 <- studies.names[-i]
   validation.set <- studies[[i]][ ,1:new.df.length]
@@ -240,14 +230,12 @@ for (i in 1:len) {
     # Use a grid search to find the best (C, gamma) pair
     # Cross-validation generate 40 SVMs  
     tune <- tune.svm(class ~ ., data = learning.set, 
-                     scale = FALSE,
                      gamma = c(10^-5, 10^-3, 10^-1, 10^1, 10^3), 
                      cost = c(10^-3, 10^-1, 10^1, 10^3, 10^5)) 
     classical.basal.ratio = sum(learning.set$class == "classical")/sum(learning.set$class == "basal")
     supp.vec <-
       svm(class ~ ., data = learning.set, 
           class.weights = c("basal" = classical.basal.ratio, "classical" = 0.1), 
-          scale = FALSE,
           gamma = tune$best.parameters$gamma, 
           cost = tune$best.parameters$cost, 
           probability = TRUE)
@@ -275,14 +263,12 @@ for (i in 1:len) {
     learning.set <- rbind(learning.set, studies.min.1[[1 + k]])
   }
   tune <- tune.svm(class ~ ., data = learning.set, 
-                   scale = FALSE,
                    gamma = c(10^-5, 10^-3, 10^-1, 10^1, 10^3), 
                    cost = c(10^-3, 10^-1, 10^1, 10^3, 10^5)) 
   classical.basal.ratio = sum(learning.set$class == "classical")/sum(learning.set$class == "basal")
   supp.vec <-
     svm(class ~ ., data = learning.set, 
         class.weights = c("basal" = classical.basal.ratio, "classical" = 1), 
-        scale = FALSE,
         gamma = tune$best.parameters$gamma,
         cost = tune$best.parameters$cost,
         probability = TRUE)
