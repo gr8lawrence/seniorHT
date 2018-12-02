@@ -1,11 +1,11 @@
 library(tidyverse)
 library(caret)
-library(e1071) # svm
+library(e1071) # package containing svm
 set.seed(100)
 
 dataPath <-
-  "/Users/gr8lawrence/Desktop/Senior Honors Thesis/datasets/"
-  #"/nas/longleaf/home/tianyi96/datasets_used/" # change this line to your local dataset directory
+  #"/Users/gr8lawrence/Desktop/Senior Honors Thesis/datasets/"
+  "/nas/longleaf/home/tianyi96/datasets_used/" # change this line to your local dataset directory
 
 studies.names <- c("Aguirre-Seq",
                    "Linehan-Seq",
@@ -135,7 +135,8 @@ expression.df <- lapply(expression.df, reorderGene)
 
 
 # This variable indicates how many genes of top differential expression are kept to make TSPs
-df.length <- 20 # We will only keep 500 genes for out purpose
+df.length <- 500 # We will only keep this number of genes, 
+                # this will give us a maximum of (df.length)*(df.length - 1)/2 variables in TSPs
 
 # Customary function to transpose a tibble while preserves the names
 transpose_tibble <- function(tb) {
@@ -186,7 +187,7 @@ ind_fun = function(train_sub, TSPs){
 # apply ind_fun to every member of the learning datasets
 studies <- lapply(transposed.learning.df, ind_fun, TSPs = TSPs.mat) 
 
-# Now determine which TSPs does not vary across different subtypes (always 0 or 1 in).
+# Now determine which TSPs does not vary across different subtypes (always 0 or 1 in all observations).
 all_1_inds <- lapply(studies, function(x) which(apply(x, 2, sum) == (dim(x)[1])))
 all_0_inds <- lapply(studies, function(x) which(apply(x, 2, sum) == 0))
 
@@ -197,7 +198,8 @@ unique_inds <-  unique(c(unlist(all_1_inds), unlist(all_0_inds)))
 studies <- lapply(studies, function(x) x[ ,-unique_inds])
 
 # scale the data to mean 0 and variance 1 using the Standardize function
-studies <- lapply(studies, function(x) as.tibble(apply(x, 2, scale)))
+#studies <- lapply(studies, function(x) as.tibble(apply(x, 2, scale)))
+studies <- lapply(studies, function(x) as.tibble(apply(x, 2, function (y) (y - mean(y))/sd(y))))
 
 # This is the same as the total number of TSPs in the final training data
 new.df.length <- dim(studies[[1]])[2]
@@ -208,38 +210,55 @@ for (i in 1:num.studies) {
 }
 
 # We create an empty tibble first to hold the leanring results
-learning.results <- tibble(learning.set = rep('NA', length(studies)^2), 
-                           validation.set = rep('NA', length(studies)^2), 
+learning.results <- tibble(training.set = rep('NA', length(studies)^2), 
+                           testing.set = rep('NA', length(studies)^2), 
                            gamma = rep(0, length(studies)^2),
                            cost = rep(0, length(studies)^2),
                            accuracy = rep(0, length(studies)^2), 
                            sensitivity = rep(0, length(studies)^2), 
                            specificity = rep(0, length(studies)^2))
 
+## Below is our loop for svm
+
 for (i in 1:num.studies) {
   studies.min.1 <- studies[-i]
   studies.names.min.1 <- studies.names[-i]
-  validation.set <- studies[[i]][ ,1:new.df.length]
+  testing_set <- data.matrix(studies[[i]][ ,1:new.df.length])
   truth <- studies[[i]]$class # The truth vector
   
   ## Run the SVM on one dataset, and validate on studies[i]
   for (j in 1:length(studies.min.1)) {
-    learning.set <- studies.min.1[[j]]
+    training_set <- studies.min.1[[j]]
+    
+    # Now because our data frame (tibble) of training data with TSPs is giant, when it is passed to the svm 
+    # too many recursion may result and this will overflow the protection stack
+    # so we separate the data frame into a data matrix and a classification vector
+    
+    dat_mat <- data.matrix(training_set[ ,1:new.df.length])
+    class <- training_set$class
     
     # We go through parameter tuning at first to search for the optimal cost C and tuning parameter gamma for the radial basis kernel
     # Use a grid search to find the best (C, gamma) pair
     # Cross-validation generate 40 SVMs  
-    tune <- tune.svm(class ~ ., data = learning.set, 
-                     gamma = c(10^-5, 10^-3, 10^-1, 10^1, 10^3), 
-                     cost = c(10^-3, 10^-1, 10^1, 10^3, 10^5)) 
-    classical.basal.ratio = sum(learning.set$class == "classical")/sum(learning.set$class == "basal")
-    supp.vec <-
-      svm(class ~ ., data = learning.set, 
-          class.weights = c("basal" = classical.basal.ratio, "classical" = 0.1), 
-          gamma = tune$best.parameters$gamma, 
-          cost = tune$best.parameters$cost, 
-          probability = TRUE)
-    pred <- predict(supp.vec, validation.set, probability = TRUE)
+    tune <- tune.svm(dat_mat, class, 
+                     gamma = c(10^-7, 10^-5, 10^-3, 10^-1, 10^1, 10^3), 
+                     cost = c(10^-3, 10^-1, 10^1, 10^3, 10^5, 10^7), 
+                     scale = FALSE) 
+    
+    # This line is for adjusting class weights as the classes are not balanced (have the same number of observations)
+    # in the training data
+    classical.basal.ratio = sum(class == "classical")/sum(class == "basal")
+    
+    # We put the best (C, gamma) values and adjusted class weights into our final svm model
+    supp.vec <- svm(dat_mat, class, 
+                    class.weights = c("basal" = classical.basal.ratio, "classical" = 0.1), 
+                    gamma = tune$best.parameters$gamma, 
+                    cost = tune$best.parameters$cost, 
+                    probability = TRUE,
+                    scale = FALSE)
+    
+    # We output the relevant values to measure the results of learning by our svm
+    pred <- predict(supp.vec, testing_set, probability = TRUE)
     confusion.mat <- confusionMatrix(data = pred,
                                      reference = truth)
     accu <- confusion.mat$overall[["Accuracy"]]
@@ -258,26 +277,37 @@ for (i in 1:num.studies) {
   }
   
   ## Run the SVM on combined datasets
-  learning.set <- studies.min.1[[1]]
+  training_set <- studies.min.1[[1]]
+  
   for (k in 1:(length(studies.min.1) - 1)) {
-    learning.set <- rbind(learning.set, studies.min.1[[1 + k]])
+    training_set <- rbind(training_set, studies.min.1[[1 + k]])
   }
-  tune <- tune.svm(class ~ ., data = learning.set, 
-                   gamma = c(10^-5, 10^-3, 10^-1, 10^1, 10^3), 
-                   cost = c(10^-3, 10^-1, 10^1, 10^3, 10^5)) 
-  classical.basal.ratio = sum(learning.set$class == "classical")/sum(learning.set$class == "basal")
-  supp.vec <-
-    svm(class ~ ., data = learning.set, 
-        class.weights = c("basal" = classical.basal.ratio, "classical" = 1), 
-        gamma = tune$best.parameters$gamma,
-        cost = tune$best.parameters$cost,
-        probability = TRUE)
-  pred <- predict(supp.vec, validation.set, probability = TRUE)
+  
+  dat_mat <- data.matrix(training_set[ ,1:new.df.length])
+  dat_mat %>% apply(2, scale) # rescaling the columns of the combined dataset
+  class <- training_set$class
+  
+  tune <- tune.svm(dat_mat, class,
+                   gamma = c(10^-7, 10^-5, 10^-3, 10^-1, 10^1, 10^3), 
+                   cost = c(10^-3, 10^-1, 10^1, 10^3, 10^5, 10^7),
+                   scale = FALSE) 
+  
+  classical.basal.ratio = sum(class == "classical")/sum(class == "basal")
+  
+  supp.vec <- svm(dat_mat, class,
+                  class.weights = c("basal" = classical.basal.ratio, "classical" = 1), 
+                  gamma = tune$best.parameters$gamma,
+                  cost = tune$best.parameters$cost,
+                  probability = TRUE,
+                  scale = FALSE)
+  
+  pred <- predict(supp.vec, testing_set, probability = TRUE)
   confusion.mat <- confusionMatrix(data = pred,
                                    reference = truth)
   accu <- confusion.mat$overall[["Accuracy"]]
   sen <- confusion.mat$byClass[["Sensitivity"]]
   spe <- confusion.mat$byClass[["Specificity"]]
+  
   learning.results[5 * i,] <-
     c(
       paste("Combined minus", studies.names[i], sep = " "),
