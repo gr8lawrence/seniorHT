@@ -241,8 +241,8 @@ for (i in 1:num.studies) {
     # Use a grid search to find the best (C, gamma) pair
     # Cross-validation generate 40 SVMs  
     tune <- tune.svm(dat_mat, class, 
-                     gamma = c(10^-7, 10^-5, 10^-3, 10^-1, 10^1, 10^3), 
-                     cost = c(10^-3, 10^-1, 10^1, 10^3, 10^5, 10^7), 
+                     gamma = 10^seq(-7, 3, 2), 
+                     cost = 10^seq(-3, 7, 2), 
                      scale = FALSE) 
     
     # This line is for adjusting class weights as the classes are not balanced (have the same number of observations)
@@ -288,8 +288,8 @@ for (i in 1:num.studies) {
   class <- training_set$class
   
   tune <- tune.svm(dat_mat, class,
-                   gamma = c(10^-7, 10^-5, 10^-3, 10^-1, 10^1, 10^3), 
-                   cost = c(10^-3, 10^-1, 10^1, 10^3, 10^5, 10^7),
+                   gamma = 10^seq(-7, 3, 2), 
+                   cost = 10^seq(-3, 7, 2),
                    scale = FALSE) 
   
   classical.basal.ratio = sum(class == "classical")/sum(class == "basal")
@@ -327,4 +327,4 @@ write.table(learning.results, file = "/nas/longleaf/home/tianyi96/TSPs_svm_resul
 
 save(x = learning.results, file = "TSPs_svm_results.Rdata")
 save.image()
-unlink("TSPs_svm_results.Rdata")
+

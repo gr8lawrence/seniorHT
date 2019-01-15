@@ -295,4 +295,4 @@ write.table(learning.results, file = "/nas/longleaf/home/tianyi96/TSPs_svm_resul
 
 save(x = learning.results, file = "TSPs_rf_results.Rdata")
 save.image()
-unlink("TSPs_svm_results.Rdata")
+
