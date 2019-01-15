@@ -211,9 +211,9 @@ for (i in 1:len) {
   
   rf <- ranger::ranger(class ~ ., data = learning.set, num.trees = 1500, probability = TRUE)
   pred <- predict(rf, validation.set)
-  pred_column <- factor(ifelse(pred$predictions[,1] > 0.5, "basal", "classical"),
-                            levels = c("basal", "classical"))
-  confusion.mat <- confusionMatrix(data = , 
+  pred_column <- factor(ifelse(pred$predictions[,1] > 0.5, "basal", "classical"), 
+                        levels = c("basal", "classical"))
+  confusion.mat <- confusionMatrix(data = pred_column, 
                                    reference = truth)
   accu <- confusion.mat$overall[["Accuracy"]]
   sen <- confusion.mat$byClass[["Sensitivity"]]
