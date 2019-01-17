@@ -135,7 +135,7 @@ expression.df <- lapply(expression.df, reorderGene)
 
 
 # This variable indicates how many genes of top differential expression are kept to make TSPs
-df.length <- 500 # We will only keep this number of genes, 
+df.length <- 100 # We will only keep this number of genes, 
                 # this will give us a maximum of (df.length)*(df.length - 1)/2 variables in TSPs
 
 # Customary function to transpose a tibble while preserves the names
@@ -272,7 +272,7 @@ for (i in 1:num.studies) {
   
   training_set[ ,1:new.df.length] %>% apply(2, scale) # rescaling the columns of the combined dataset
   
-  rf <- ranger::ranger(class~., data = training_set, probability = TRUE, memory.saving = TRUE)
+  rf <- ranger::ranger(class~., data = training_set, probability = TRUE, save.memory = TRUE)
   final_models[[5 * i]] <- rf
   pred <- predict(rf, testing_set)
   pred_column <- ifelse(pred$predictions[ ,1] > 0.5, "basal", "classical") %>%

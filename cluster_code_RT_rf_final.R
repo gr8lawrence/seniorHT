@@ -227,7 +227,7 @@ for (i in 1:len) {
   accu <- confusion.mat$overall[["Accuracy"]]
   sen <- confusion.mat$byClass[["Sensitivity"]]
   spe <- confusion.mat$byClass[["Specificity"]]
-  learning.results[10 * i,] <-
+  learning.results[5 * i,] <-
     c(
       paste("comb. minus", studies.names[i],
             sep = " "),
