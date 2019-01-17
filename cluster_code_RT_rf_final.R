@@ -173,6 +173,8 @@ learning.results <- tibble(learning.set = rep('NA', length(studies)^2),
                            specificity = rep(0, length(studies)^2))
 len <- length(studies)
 
+final_models <- list()
+
 for (i in 1:len) {
   studies.min.1 <- studies[-i]
   studies.names.min.1 <- studies.names[-i]
@@ -185,6 +187,10 @@ for (i in 1:len) {
     
     # Random Forest
     rf <- ranger::ranger(class ~ ., data = learning.set, num.trees = 1500, probability = TRUE)
+    
+    # We store the models into the list
+    final_models[[5 * (i - 1) + j]] <- rf
+    
     pred <- predict(rf, validation.set)
     pred_column <- factor(ifelse(pred$predictions[,1] > 0.5, "basal", "classical"),
                           levels = c("basal", "classical"))
@@ -210,6 +216,9 @@ for (i in 1:len) {
   }
   
   rf <- ranger::ranger(class ~ ., data = learning.set, num.trees = 1500, probability = TRUE)
+  
+  final_models[[5 * i]] <- rf
+  
   pred <- predict(rf, validation.set)
   pred_column <- factor(ifelse(pred$predictions[,1] > 0.5, "basal", "classical"), 
                         levels = c("basal", "classical"))
@@ -230,9 +239,12 @@ for (i in 1:len) {
 
 }
 
+# We compile a list of the outputs that contains the models as well as the result table
+final_results <- list("models" = final_models, "results" = learning.results)
+
 print(learning.results, n = length(studies)^2)
 
 write.table(learning.results, file = "/nas/longleaf/home/tianyi96/learning_results_RT_rf.csv")
 
-save(x = learning.results, file = "learning_result_RT_rf.Rdata")
+save(x = final_results, file = "learning_result_RT_rf.Rdata")
 save.image()

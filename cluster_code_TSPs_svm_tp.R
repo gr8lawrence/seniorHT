@@ -218,6 +218,9 @@ learning.results <- tibble(training.set = rep('NA', length(studies)^2),
                            sensitivity = rep(0, length(studies)^2), 
                            specificity = rep(0, length(studies)^2))
 
+# We also create an empty list to hold the models
+final_models <- list()
+
 ## Below is our loop for svm
 
 for (i in 1:num.studies) {
@@ -257,14 +260,19 @@ for (i in 1:num.studies) {
                     probability = TRUE,
                     scale = FALSE)
     
+    # We store the model to the list
+    final_models[[5 * (i - 1) + j]] <- supp.vec
+    
     # We output the relevant values to measure the results of learning by our svm
     pred <- predict(supp.vec, testing_set, probability = TRUE)
     confusion.mat <- confusionMatrix(data = pred,
                                      reference = truth)
+    
     accu <- confusion.mat$overall[["Accuracy"]]
     sen <- confusion.mat$byClass[["Sensitivity"]]
     spe <- confusion.mat$byClass[["Specificity"]]
-    learning.results[5 * (i - 1) + j,] <-
+   
+     learning.results[5 * (i - 1) + j,] <-
       c(
         studies.names.min.1[j],
         studies.names[i],
@@ -301,6 +309,8 @@ for (i in 1:num.studies) {
                   probability = TRUE,
                   scale = FALSE)
   
+  final_models[[5 * i]] <- supp.vec
+  
   pred <- predict(supp.vec, testing_set, probability = TRUE)
   confusion.mat <- confusionMatrix(data = pred,
                                    reference = truth)
@@ -321,10 +331,14 @@ for (i in 1:num.studies) {
   
 }
 
+# We compile a list of the outputs that contains the models as well as the result table
+final_results <- list("models" = final_models, "results" = learning.results)
+
+# Print the learning results
 print(learning.results, n = 2*length(studies)^2)
 
 write.table(learning.results, file = "/nas/longleaf/home/tianyi96/TSPs_svm_results.csv")
 
-save(x = learning.results, file = "TSPs_svm_results.Rdata")
+save(x = final_results, file = "TSPs_svm_results.Rdata")
 save.image()
 

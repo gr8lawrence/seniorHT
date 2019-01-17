@@ -216,6 +216,9 @@ learning.results <- tibble(training.set = rep('NA', length(studies)^2),
                            sensitivity = rep(0, length(studies)^2), 
                            specificity = rep(0, length(studies)^2))
 
+# We also create a list to store the final learning models
+final_models <- list()
+
 ## Below is our loop for random forest (rf)
 
 for (i in 1:num.studies) {
@@ -231,6 +234,9 @@ for (i in 1:num.studies) {
     # We train the random forest model on the training set.
     # Because the high dimensinality of our data, to avoid crashes we turn on the memory saving function
     rf <- ranger::ranger(class~., data = training_set, probability = TRUE, save.memory = TRUE)
+    
+    # We store the models to the list
+    final_models[[5 * (i - 1) + j]] <- rf
     
     # We output the relevant values to measure the results of learning by our rf
     # The predicted subtype is assigned based on probability (of being a "basal"); 
@@ -267,6 +273,7 @@ for (i in 1:num.studies) {
   training_set[ ,1:new.df.length] %>% apply(2, scale) # rescaling the columns of the combined dataset
   
   rf <- ranger::ranger(class~., data = training_set, probability = TRUE, memory.saving = TRUE)
+  final_models[[5 * i]] <- rf
   pred <- predict(rf, testing_set)
   pred_column <- ifelse(pred$predictions[ ,1] > 0.5, "basal", "classical") %>%
     factor(levels = c("basal", "classical"))
@@ -289,10 +296,13 @@ for (i in 1:num.studies) {
   
 }
 
+# We compile a list of the outputs that contains the models as well as the result table
+final_results <- list("models" = final_models, "results" = learning.results)
+
 print(learning.results, n = 2*length(studies)^2)
 
 write.table(learning.results, file = "/nas/longleaf/home/tianyi96/TSPs_svm_results.csv")
 
-save(x = learning.results, file = "TSPs_rf_results.Rdata")
+save(x = final_results, file = "TSPs_rf_results.Rdata")
 save.image()
 

@@ -173,6 +173,7 @@ learning.results <- tibble(learning.set = rep('NA', length(studies)^2),
                            sensitivity = rep(0, length(studies)^2), 
                            specificity = rep(0, length(studies)^2))
 len <- length(studies)
+final_models <- list()
 
 for (i in 1:len) {
   studies.min.1 <- studies[-i]
@@ -186,17 +187,19 @@ for (i in 1:len) {
     
     # We go through parameter tuning at first to search for the optimal cost C and tuning parameter gamma for the radial basis kernel
     # Use a grid search to find the best (C, gamma) pair
-    # Cross-validation generate 40 SVMs  
     tune <- tune.svm(class ~ ., data = learning.set, 
                      gamma = 10^seq(-5, 3, 2), 
                      cost = 10^seq(-3, 5, 2)) 
     classical.basal.ratio = sum(learning.set$class == "classical")/sum(learning.set$class == "basal")
-    supp.vec <-
-      svm(class ~ ., data = learning.set, 
-          class.weights = c("basal" = classical.basal.ratio, "classical" = 0.1), 
-          gamma = tune$best.parameters$gamma, 
-          cost = tune$best.parameters$cost, 
-          probability = TRUE)
+    supp.vec <- svm(class ~ ., data = learning.set, 
+                    class.weights = c("basal" = classical.basal.ratio, "classical" = 0.1), 
+                    gamma = tune$best.parameters$gamma, 
+                    cost = tune$best.parameters$cost, 
+                    probability = TRUE)
+    
+    # We store the models into the list
+    final_models[[5 * (i - 1) + j]] <- supp.vec
+    
     pred <- predict(supp.vec, validation.set, probability = TRUE)
     confusion.mat <- confusionMatrix(data = pred,
                                      reference = truth)
@@ -224,12 +227,14 @@ for (i in 1:len) {
                    gamma = 10^seq(-5, 3, 2), 
                    cost = 10^seq(-3, 5, 2)) 
   classical.basal.ratio = sum(learning.set$class == "classical")/sum(learning.set$class == "basal")
-  supp.vec <-
-    svm(class ~ ., data = learning.set, 
-        class.weights = c("basal" = classical.basal.ratio, "classical" = 1), 
-        gamma = tune$best.parameters$gamma,
-        cost = tune$best.parameters$cost,
-        probability = TRUE)
+  supp.vec <- svm(class ~ ., data = learning.set, 
+                  class.weights = c("basal" = classical.basal.ratio, "classical" = 1), 
+                  gamma = tune$best.parameters$gamma,
+                  cost = tune$best.parameters$cost,
+                  probability = TRUE)
+  
+  final_models[[5 * i]] <- supp.vec
+  
   pred <- predict(supp.vec, validation.set, probability = TRUE)
   confusion.mat <- confusionMatrix(data = pred,
                                    reference = truth)
@@ -248,10 +253,11 @@ for (i in 1:len) {
     )
   
 }
+final_results <- list("models" = final_models, "results" = learning.results)
 
 print(learning.results, n = 2*length(studies)^2)
 
 write.table(learning.results, file = "/nas/longleaf/home/tianyi96/learning_results_RT_svm.csv")
 
-save(x = learning.results, file = "grid_search_result.Rdata")
+save(x = final_results, file = "grid_search_result.Rdata")
 save.image()
