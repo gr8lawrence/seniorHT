@@ -159,28 +159,30 @@ learning.results <- tibble(testing.set = rep('NA', length(studies)),
 # Because this is the multi-task learning, we can only perform the hold-one-out task.
 # We need to group the feature matrices and ground truth vectors (classification vectors) into two lists
 
-#for (i in 1:num.studies) {
-  i = 1
+for (i in 1:num.studies) {
   training_set <- studies[-i]
   training_set_names <- studies.names[-i]
   testing_set <- data.matrix(studies[[i]][ ,1:df.length])
   truth <- studies[[i]]$class # The ground truth vector
   
-  # We make the lists of feature matrices and truth vectors
+  # We make the lists of feature matrices and truth vectors (must be -1 or 1 for both catogories)
   dat_mat <- lapply(training_set, function(x) data.matrix(x[ ,1:df.length]))
   class_vec <- lapply(training_set, function(x) ifelse(x$class == "basal", 1, -1))
     
   # We start with cross-validation to find the optimal parameters for lambda_1 and lambda_2 (using loop) in the L21 method
+  # We include lambda_2 = 0 (equivalent to penalized logistic regression) to show if there is any 
+  # performance increase by using multi-task learning
+  
   log_10_lam_2_range <- seq(-5, 3, 2)
   
   lam2s <- list(lam2 = c(0, 10^log_10_lam_2_range), 
                 best.lam1 = rep(0, length(log_10_lam_2_range) + 1),
                 error = rep(0, length(log_10_lam_2_range) + 1))
   
-  for (j in log_10_lam_2_range) {
+  for (j in c(0, log_10_lam_2_range)) {
     cross_val <- cv.MTC_L21(dat_mat, class_vec, nfolds = 15,
                             lam1 = 10^seq(-5, 3, 2), 
-                            lam2 = 10^j)
+                            lam2 = ifelse(j == 0, 0, 10^j))
     lam2s$best.lam1[j] <- cross_val$lam1.min
     lam2s$error[j] <- min(cross_val$cvm)
   }
@@ -197,19 +199,22 @@ learning.results <- tibble(testing.set = rep('NA', length(studies)),
                   lam2 = lam2_best)
     
     # We predict on the test set and output the measurements of learning performance
-    pred <- predict(mtl_model, testing_set)
+    # The test set needs to be a list
+    pred <- predict(mtl_model, list(testing_set))
     
-    confusion.mat <- confusionMatrix(data = pred, reference = truth)
+    pred_values <- factor(ifelse(pred[[1]] > 0, "basal", "classical"), levels = c("basal", "classical"))  
+    
+    confusion.mat <- confusionMatrix(data = pred_values, reference = truth)
     
     accu <- confusion.mat$overall[["Accuracy"]]
     sen <- confusion.mat$byClass[["Sensitivity"]]
     spe <- confusion.mat$byClass[["Specificity"]]
-    learning.results[5 * (i - 1) + j,] <-
+    learning.results[i,] <-
       c(
         studies.names.min.1[j],
         studies.names[i],
-        tune$best.parameters$gamma,
-        tune$best.parameters$cost,
+        lam1_best,
+        lam2_best,
         signif(accu, digits = 3),
         signif(sen, digits = 3),
         signif(spe, digits = 3)
