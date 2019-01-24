@@ -135,9 +135,7 @@ reorderGene <- function(df) {
 
 expression.df <- lapply(expression.df, reorderGene)
 
-df.length <- 100
-  
-#num.common.genes/5 # We keep 1/5 of the total number of genes in the training sets for RMTL
+df.length <- num.common.genes/5 # We keep 1/5 of the total number of genes in the training sets for RMTL
 
 # Append the classification to the training data
 
@@ -154,6 +152,9 @@ learning.results <- tibble(testing.set = rep('NA', length(studies)),
                            accuracy = rep(0, length(studies)), 
                            sensitivity = rep(0, length(studies)), 
                            specificity = rep(0, length(studies)))
+
+# We create a list to hold our final model
+final_models <- list()
 
 ## Below is our loop for multi-task learning (MTL)
 # Because this is the multi-task learning, we can only perform the hold-one-out task.
@@ -197,35 +198,39 @@ for (i in 1:num.studies) {
   mtl_model <- MTC_L21(dat_mat, class_vec, 
                   lam1 = lam1_best,
                   lam2 = lam2_best)
+  
+  final_models[[i]] <- mtl_model
     
-    # We predict on the test set and output the measurements of learning performance
-    # The test set needs to be a list
-    pred <- predict(mtl_model, list(testing_set))
+  # We predict on the test set and output the measurements of learning performance
+  # The test set needs to be a list
+  pred <- predict(mtl_model, list(testing_set))
+  pred_values <- factor(ifelse(pred[[1]] > 0, "basal", "classical"), levels = c("basal", "classical"))  
+  confusion.mat <- confusionMatrix(data = pred_values, reference = truth)
     
-    pred_values <- factor(ifelse(pred[[1]] > 0, "basal", "classical"), levels = c("basal", "classical"))  
-    
-    confusion.mat <- confusionMatrix(data = pred_values, reference = truth)
-    
-    accu <- confusion.mat$overall[["Accuracy"]]
-    sen <- confusion.mat$byClass[["Sensitivity"]]
-    spe <- confusion.mat$byClass[["Specificity"]]
-    learning.results[i,] <-
-      c(
-        studies.names.min.1[j],
-        studies.names[i],
-        lam1_best,
-        lam2_best,
-        signif(accu, digits = 3),
-        signif(sen, digits = 3),
-        signif(spe, digits = 3)
-      )
+  accu <- confusion.mat$overall[["Accuracy"]]
+  sen <- confusion.mat$byClass[["Sensitivity"]]
+  spe <- confusion.mat$byClass[["Specificity"]]
+  learning.results[i,] <-
+    c(
+      studies.names.min.1[j],
+      studies.names[i],
+      lam1_best,
+      lam2_best,
+      signif(accu, digits = 3),
+      signif(sen, digits = 3),
+      signif(spe, digits = 3)
+    )
   
 }
 
+# We create a list to hold all models and learning results
+
+final_results <- list("models" = final_model, "results" = learning.results)
+
 print(learning.results, n = length(studies))
 
-write.table(learning.results, file = "/nas/longleaf/home/tianyi96/TSPs_svm_results.csv")
+write.table(learning.results, file = "/nas/longleaf/home/tianyi96/MTL_RT_results.csv")
 
-save(x = learning.results, file = "TSPs_svm_results.Rdata")
+save(x = final_results, file = "MTL_RT_results.Rdata")
 save.image()
-unlink("TSPs_svm_results.Rdata")
+
