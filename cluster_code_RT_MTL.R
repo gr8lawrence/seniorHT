@@ -173,9 +173,9 @@ learning.results <- tibble(testing.set = rep('NA', length(studies)),
   # We start with cross-validation to find the optimal parameters for lambda_1 and lambda_2 (using loop) in the L21 method
   log_10_lam_2_range <- seq(-5, 3, 2)
   
-  lam2s <- list(lam2 = log_10_lam_2_range, 
-                best.lam1 = rep(0, length(log_10_lam_2_range)),
-                error = rep(0, length(log_10_lam_2_range)))
+  lam2s <- list(lam2 = c(0, 10^log_10_lam_2_range), 
+                best.lam1 = rep(0, length(log_10_lam_2_range) + 1),
+                error = rep(0, length(log_10_lam_2_range) + 1))
   
   for (j in log_10_lam_2_range) {
     cross_val <- cv.MTC_L21(dat_mat, class_vec, nfolds = 15,
@@ -190,10 +190,11 @@ learning.results <- tibble(testing.set = rep('NA', length(studies)),
   lam2_best <- lam2s$lam2[ind_min_cve][1]
     
   # With the selected lambda_1 and lambda_2 we fit the MTL L21 model;
+  ### Keep the result when lam2 equals 0. Also put lam2 = 0 into the loop.
 
   mtl_model <- MTC_L21(dat_mat, class_vec, 
-                  lam1 = cross_val$lam1_best,
-                  lam2 = cross_val$lam2_best)
+                  lam1 = lam1_best,
+                  lam2 = lam2_best)
     
     # We predict on the test set and output the measurements of learning performance
     pred <- predict(mtl_model, testing_set)
