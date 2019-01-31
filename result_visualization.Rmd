@@ -1,0 +1,38 @@
+---
+title: "Machine Learning Effects Visualization"
+author: "Tianyi Liu"
+date: "1/16/2019"
+output: html_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+```{r load_data, include = FALSE}
+data_path <- "/Users/gr8lawrence/Desktop/Senior Honors Thesis/R_output_from_cluster/"
+load(paste(data_path, "learning_result_RT_rf.Rdata", sep = ""))
+load(paste(data_path, "learning_result_RT_svm.Rdata", sep = ""))
+load(paste(data_path, "learning_result_TSPs_rf_tp_100.Rdata", sep = ""))
+load(paste(data_path, "learning_result_TSPs_svm_tp_500.Rdata", sep = ""))
+```
+## Overview
+
+In this document, we present several visualizations of our results that demonstrate the performances of various combinations of data processing and machine learning models.
+
+
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
