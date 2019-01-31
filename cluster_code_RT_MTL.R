@@ -6,8 +6,8 @@ set.seed(100)
 ## In this section we explore the RMTL package
 
 dataPath <-
-  "/Users/gr8lawrence/Desktop/Senior Honors Thesis/datasets/"
-  #"/nas/longleaf/home/tianyi96/datasets_used/" # change this line to your local dataset directory
+  #"/Users/gr8lawrence/Desktop/Senior Honors Thesis/datasets/"
+  "/nas/longleaf/home/tianyi96/datasets_used/" # change this line to your local dataset directory
 
 studies.names <- c("Aguirre-Seq",
                    "Linehan-Seq",
@@ -225,7 +225,7 @@ for (i in 1:num.studies) {
 
 # We create a list to hold all models and learning results
 
-final_results <- list("models" = final_model, "results" = learning.results)
+final_results <- list("models" = final_models, "results" = learning.results)
 
 print(learning.results, n = length(studies))
 
