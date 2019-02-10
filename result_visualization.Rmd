@@ -9,6 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(ggpubr)
+library(pROC)
 ```
 
 ```{r load_data, include = FALSE}
@@ -86,26 +87,31 @@ results_tibble$method <- factor(results_tibble$method, levels = c("PLR", "RF", "
 results_tibble$transformation <- factor(results_tibble$transformation, levels = c("Rank", "TSPs"))
 results_tibble$strategy <- factor(results_tibble$strategy, levels = c("Single", "Combined"))
 
+## We average the measurements of performance across results from "Single" dataset learning.
+summary_table <- aggregate(cbind(accuracy, sensitivity, specificity) ~ test.set + method + transformation + strategy, data = results_tibble, mean)
 
-print(results_tibble, n = 10)
+print(as.tibble(summary_table, n = 10))
 ```
 
 ### Prediction Accuracy
 
 One measurement of performances for any machine learning program is the prediction accuracy. Here, we present the boxplots for the accuracies of several of our combinations of data transformation methods, learning methods, and  learning strategies.
 
-```{r pred_accu, echo = FALSE}
-ggplot(data = results_tibble, aes(x = interaction(transformation, strategy, sep = "-"), y = accuracy, fill = interaction(transformation, strategy, sep = "-"))) +
-  geom_boxplot(alpha = 0.8, width = 0.25) +
-  ggtitle("Comparison of Prediction Accuracy") +
-  xlab("Transformation-Strategy") +
-  ylab("Accuracy") +
-  theme_classic() + facet_grid(.~method) +
-  theme(axis.text.x = element_text(vjust = 0.5, angle = 90)) +
-  scale_fill_discrete(name = "Trans/Strategy")
+#### Figure 1 
 
+```{r pred_accu}
+ggplot(data = summary_table, aes(x = transformation, y = accuracy, fill = transformation)) +
+  geom_boxplot(alpha = 0.8, width = 0.2) +
+  ggtitle("Comparison of Prediction Accuracy") +
+  xlab("Transformation") +
+  ylab("Accuracy") +
+  theme_light() + facet_grid(strategy ~ method) +
+  theme(axis.text.x = element_text(vjust = 0.5)) +
+  scale_fill_manual(values = c("#E69F00", "#56B4E9"), 
+                    name = "Transformation")
 ```
 
+#### Supplementary Figures
 ```{r pred_accu_method, echo = FALSE}
 ggplot(data = results_tibble, aes(x = method, y = accuracy, fill = method)) +
   geom_boxplot(alpha = 0.8, width = 0.25) +
@@ -220,9 +226,49 @@ ggplot(data = results_tibble, aes(x = strategy, y = specificity, fill = strategy
   xlab("Learning Strategy") +
   ylab("Specificity") +
   theme_classic() +
-  scale_fill_discrete(name = "Learning Strategy") 
+  scale_fill_manual(values = c("#E69F00", "#56B4E9"), name = "Learning Strategy")
 ```
 
+
+### ROC Plot
+
+Another way to visualize the performance of each program is to draw ROC curves. Because we know from the accuracy plot that random forest plus TSPs produces the best prediction accuracy, we will plot out the roc curves only for this combination under each learning cycle (from different datasets). The ROC curves are plotted using the `pROC` package. 
+
+#### Preprocessing
+
+We need to obtain the truth vectors before proceeding. 
+
+``` {r data_pp2}
+dataPath <- "/Users/gr8lawrence/Desktop/Senior Honors Thesis/datasets/" # The name of the directory where all data sets are stored locally
+studies.names <- c("Aguirre-Seq", "Linehan-Seq", "COMPASS", "Moffitt Arrays", "TCGA-PAAD") # Names of the studies in the same order as being loaded
+# Load datasets
+load(paste(dataPath, "Aguirre_seq_plus.RData", sep = ""))
+load(paste(dataPath, "Linehan_Seq_plus.RData", sep = ""))
+load(paste(dataPath, "COMPASS.2017_plus.RData", sep = ""))
+load(paste(dataPath, "Moffitt_GEO_array_plus.RData", sep = ""))
+load(paste(dataPath, "TCGA_PAAD_plus.RData", sep = ""))
+# Incorporate all datasets into a single list object
+studies.df <- list(Aguirre_seq_plus, Linehan_Seq_plus, COMPASS.2017_plus, Moffitt_GEO_array_plus, TCGA_PAAD_plus)
+num.studies <- length(studies.df) # Number of datasets
+
+## Assign a truth vector to each cycle of learning using the loop below
+truth.list <- list() # A list object to hold all truth vectors
+for (i in 1:num.studies) {
+  truth <- studies.df[[i]]$sampInfo$cluster.MT[!is.na(studies.df[[i]]$sampInfo$cluster.MT)] 
+  for (j in 1:num.studies) {
+    truth.list[[(i - 1) * num.studies + j]] <- truth
+  }
+}
+
+truth.list[[1]] # Print out the first vector as an example
+```
+#### Plotting
+
+```{r roc_curve, echo = FALSE}
+print("Placeholder for ROC curves")
+
+
+```
 
 
 
