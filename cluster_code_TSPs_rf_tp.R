@@ -4,8 +4,8 @@ library(ranger) # package containing rf
 set.seed(100)
 
 dataPath <-
-  "/Users/gr8lawrence/Desktop/Senior Honors Thesis/datasets/"
-  #"/nas/longleaf/home/tianyi96/datasets_used/" # change this line to your local dataset directory
+  #"/Users/gr8lawrence/Desktop/Senior Honors Thesis/datasets/"
+  "/nas/longleaf/home/tianyi96/datasets_used/" # change this line to your local dataset directory
 
 studies.names <- c("Aguirre-Seq",
                    "Linehan-Seq",
@@ -218,6 +218,7 @@ learning.results <- tibble(training.set = rep('NA', length(studies)^2),
 
 # We also create a list to store the final learning models
 final_models <- list()
+final_preds <- list()
 
 ## Below is our loop for random forest (rf)
 
@@ -244,6 +245,10 @@ for (i in 1:num.studies) {
     # otherwise, we assign it to the "classical" class.
     
     pred <- predict(rf, testing_set)
+    
+    # We also store the predictions to the list for plotting ROC curves
+    final_preds[[5 * (i - 1) + j]] <- pred
+    
     pred_column <-  ifelse(pred$predictions[ ,1] > 0.5, "basal", "classical")  %>% 
        factor(levels = c("basal", "classical"))  
       
@@ -275,6 +280,7 @@ for (i in 1:num.studies) {
   rf <- ranger::ranger(class~., data = training_set, probability = TRUE, save.memory = TRUE)
   final_models[[5 * i]] <- rf
   pred <- predict(rf, testing_set)
+  final_preds[[5 * i]] <- pred
   pred_column <- ifelse(pred$predictions[ ,1] > 0.5, "basal", "classical") %>%
     factor(levels = c("basal", "classical"))
   
@@ -299,10 +305,11 @@ for (i in 1:num.studies) {
 # We compile a list of the outputs that contains the models as well as the result table
 final_results <- list("models" = final_models, "results" = learning.results)
 
-print(learning.results, n = 2*length(studies)^2)
+print(learning.results, n = length(studies)^2)
 
 write.table(learning.results, file = "/nas/longleaf/home/tianyi96/TSPs_svm_results.csv")
 
 save(x = final_results, file = "TSPs_rf_results.Rdata")
+save(x = final_preds, file = "TSPs_rf_predictions.Rdata")
 save.image()
 
