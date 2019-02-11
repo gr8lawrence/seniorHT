@@ -171,8 +171,8 @@ for (i in 1:num.studies) {
     cross_val <- cv.MTC_L21(data_matrix_list, class_vec, nfolds = 20,
                             lam1 = 2^seq(-5, 5, 1), 
                             lam2 = ifelse(j == 0, 0, 2^j))
-    lam2s$best.lam1[i] <- cross_val$lam1.min
-    lam2s$error[i] <- min(cross_val$cvm)
+    lam2s$best.lam1[k] <- cross_val$lam1.min
+    lam2s$error[k] <- min(cross_val$cvm)
   }
   
   ind_min_cve <- which(lam2s$error == min(lam2s$error))
