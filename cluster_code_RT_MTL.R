@@ -5,10 +5,8 @@ set.seed(100)
 
 ### In this program we explore the RMTL package
 
-dataPath <-
-  #"/Users/gr8lawrence/Desktop/Senior Honors Thesis/datasets/"
-  "/nas/longleaf/home/tianyi96/datasets_used/" # change this line to your local dataset directory
-
+dataPath <- #"/Users/gr8lawrence/Desktop/Senior Honors Thesis/datasets/"
+            "/nas/longleaf/home/tianyi96/datasets_used/" # change this line to your local dataset directory
 studies.names <- c("Aguirre-Seq",
                    "Linehan-Seq",
                    "COMPASS",
@@ -95,7 +93,6 @@ for (i in 1:num.studies){
   gene.pvals[[i]] <- tibble(name = make.names(commonGeneNames),
                             pval = rep(0, num.common.genes))
 }
-
 for (i in 1:num.studies) {
   for (j in 1:num.common.genes) {
     basal.vector <- basal.matrices[[i]][ ,j]
@@ -107,7 +104,6 @@ for (i in 1:num.studies) {
 # Compute each gene's sum of log-10 p-values
 gene.sum.log.pvals <- tibble(name = make.names(commonGeneNames),
                              pval = rep(0, length(commonGeneNames)))
-
 for (i in 1:num.common.genes) {
   gene.pvals.vector <- vector()
   for (j in 1:num.studies) {
@@ -150,8 +146,8 @@ final_preds <- list()
 # We need to group the feature matrices and ground truth vectors (classification vectors) into two lists
 for (i in 1:num.studies) {
   training_set <- studies[-i]
-  training_set_names <- studies.names[-i]
   testing_set <- data.matrix(studies[[i]][ ,1:df.length])
+  testing_set_names <- studies.names[i]
   truth <- studies[[i]]$class # The ground truth vector
   
   # We make the lists of feature matrices and truth vectors (must be -1 or 1 for both catogories)
@@ -181,7 +177,7 @@ for (i in 1:num.studies) {
     
   # With the selected lambda_1 and lambda_2 we fit the MTL L21 model;
   # Keep the result when lam2 equals 0. Also put lam2 = 0 into the loop.
-  mtl_model <- MTC_L21(dat_mat, class_vec, 
+  mtl_model <- MTC_L21(data_matrix_list, class_vec, 
                   lam1 = lam1_best,
                   lam2 = lam2_best)
   final_models[[i]] <- mtl_model
@@ -195,7 +191,7 @@ for (i in 1:num.studies) {
   accu <- confusion.mat$overall[["Accuracy"]]
   sen <- confusion.mat$byClass[["Sensitivity"]]
   spe <- confusion.mat$byClass[["Specificity"]]
-  learning.results[i,] <- c(studies.names[i],
+  learning.results[i,] <- c(testing_set_names,
                             lam1_best,
                             lam2_best,
                             signif(accu, digits = 3),
