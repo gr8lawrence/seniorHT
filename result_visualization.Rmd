@@ -1,14 +1,13 @@
 ---
-title: "Machine Learning Performances Visualization"
+title: "Classification Performance Visualization"
 author: "Tianyi Liu"
-date: "1/16/2019"
+date: "2/19/2019"
 output: html_document
 ---
 
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
-library(ggpubr)
 library(pROC)
 ```
 
@@ -32,7 +31,7 @@ fr[[4]] <- final_results
 
 ## Overview
 
-In this document, we present several visualizations of our results that demonstrate the performances of various combinations of data processing and machine learning models. 
+In this document, we present visualizations of our results that demonstrate the performances of various combinations of data processing, learning strategy, and machine learning models. 
 
 ### Data Processing
 
@@ -101,7 +100,7 @@ One measurement of performances for any machine learning program is the predicti
 
 ```{r pred_accu}
 ggplot(data = summary_table, aes(x = transformation, y = accuracy, fill = transformation)) +
-  geom_boxplot(alpha = 0.8, width = 0.2) +
+  geom_boxplot(alpha = 0.8, width = 0.45) +
   ggtitle("Comparison of Prediction Accuracy") +
   xlab("Transformation") +
   ylab("Accuracy") +
@@ -177,7 +176,7 @@ legend("bottomright", legend = c("Single", "Combined"), col = c("#E69F00", "#56B
 ```
 
 ### MTL
-Multitask (MTL) learning is a relatively new classification technique that weighs in the information from all training data for feature selections. In our study, we apply an implementation of the MTL as an analougue to the penalized logistic regression (with a specific L21 norm) with extra penalization for across-dataset feature selections to predict pancreatic cancer subtypes from genomic data. 
+Multitask learning (MTL) is a relatively new machine learning technique for classification that weighs in the information from all datasets for training in addition to that of each single dataset. In our study, we apply an implementation of the MTL as an analougue to the penalized logistic regression (with a specific L21 norm) with extra penalization for leveraging across-dataset information to predict pancreatic cancer subtypes from genomic data. 
 
 As shown above, random forest plus TSPs shows the most promisiong results among all the strategies withouth using the MTL. In this section, we evaluate the performance of using the MTL method alongside random forest plus TSPs to see if the new technique brings improvement to the predictions of pancreateic cancer subtypes.
 
@@ -200,19 +199,30 @@ mtl_tsps_preds <- final_preds
 mtl_results <- rbind(mtl_rt_results_trans, mtl_tsps_results_trans)
 mtl_results_trimmed <- mtl_results %>% select(-lambda.1, -lambda.2)
 mtl_results_trimmed[ ,2:4] <- apply(mtl_results_trimmed[ ,2:4], 2, as.double)
+mtl_results_trimmed$method <- factor(mtl_results_trimmed$method, levels = c("PLR", "RF", "SVM", "MTL"))
+mtl_results_trimmed$transformation <- factor(mtl_results_trimmed$transformation, levels = c("Rank", "TSPs")) 
+mtl_results_trimmed
 ```
 
 #### Figure 4
 #### Panel (A)
 
+We compare the accuracies of the MTL predictions. We put them side by side with those of the random forest predictions.
+
+``` {r concatenate_data} 
+rf_results <- as.tibble(summary_table[which(summary_table$method == "RF" & summary_table$strategy == "Combined"), ]) %>% select(-strategy)
+colnames(rf_results)[1] <- "testing.set"
+concatenated_df <- bind_rows(mtl_results_trimmed, rf_results)
+```
+
 ``` {r pred_accu_mtl}
-ggplot(data = mtl_results_trimmed, aes(x = transformation, y = accuracy, fill = transformation)) +
-  geom_boxplot(alpha = 0.8, width = 0.2) +
+ggplot(data = concatenated_df, aes(x = transformation, y = accuracy, fill = transformation)) +
+  geom_boxplot(alpha = 0.8, width = 0.45) +
   ggtitle("Comparison of Prediction Accuracy",
           subtitle = "for the MTL method") +
   xlab("Transformation") +
   ylab("Accuracy") +
-  theme_light() + 
+  theme_light() + facet_grid(. ~ method) +
   theme(axis.text.x = element_text(vjust = 0.5)) +
   scale_fill_manual(values = c("#E69F00", "#56B4E9"), 
                     name = "Transformation")
