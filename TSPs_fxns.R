@@ -2,7 +2,7 @@
 ## Written by: Tianyi Liu  
 
 # Customary function to transpose a tibble while preserves the names
-transposeTibble <- function(tb) 
+transposeTibble <- function(tb, df.length) 
 {
   data.mat <- t(data.matrix(tb))[1:df.length,]
   tr.tibble <- as.tibble(data.mat)
@@ -62,7 +62,7 @@ makeTSPs <- function(transposed.learning.df, gene.subset.names, df.length)
   studies <- lapply(studies, function(x){x[ ,-unique_inds]})
   # scale the data to mean 0 and variance 1 using the Standardize function
     #studies <- lapply(studies, function(x) as.tibble(apply(x, 2, scale)))
-  studies <- lapply(studies, function(x){as.tibble(apply(x, 2, function(y){(y - mean(y))/sd(y)))})
+  studies <- lapply(studies, function(x){as.tibble(apply(x, 2, function(y){(y - mean(y))/sd(y)}))})
   
   return(studies)
 }

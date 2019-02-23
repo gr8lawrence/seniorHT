@@ -9,16 +9,6 @@ rankTransform <- function(d.set)
   return(d.set)
 }
 
-# Re-order genes based on sorted indices
-reorderGene <- function(df) 
-{
-  df.colnames <- colnames(df)
-  df[ ,1:length(common.gene.names)] <- data.matrix(df[, index])
-  colnames(df) <- df.colnames[index]
-  
-  return(as_tibble(df))
-}
-
 # Extract the rank-transformed count matrix, remove the un-labeled observations, and append the labels
 # Output is a data frame
 extractData <- function(d.set, common.gene.names) 
@@ -34,11 +24,12 @@ extractData <- function(d.set, common.gene.names)
 
 
 # Re-order the extracted data frame (from the function above) by their significance of differential expression
-reorderGeneBySignificance <- function(ranked.exp.df.list, common.gene.names, num.common.genes)
+reorderGeneBySignificance <- function(ranked.exp.df.list, common.gene.names)
 {
+  num.common.genes <- length(common.gene.names)
   # Separate observations by subtypes
-  expression.basal.df.list <- lapply(ranked.exp.df.list, function(x){ x[x$class == "basal", ] })
-  expression.classical.df.list <- lapply(ranked.exp.df.list, function(x){ x[x$class == "classical", ] })
+  expression.basal.df.list <- lapply(ranked.exp.df.list, function(x) x[x$class == "basal", ] )
+  expression.classical.df.list <- lapply(ranked.exp.df.list, function(x) x[x$class == "classical", ] )
   # Transform dataset to matrices (Wilcoxon rank sum test)
   basal.matrices <- list()
   classical.matrices <- list()
@@ -73,6 +64,15 @@ reorderGeneBySignificance <- function(ranked.exp.df.list, common.gene.names, num
   }
   # Give the sorted indices of genes
   index <- order(gene.sum.log.pvals$pval) 
+  # Re-order genes based on sorted indices
+  reorderGene <- function(df) 
+  {
+    df.colnames <- colnames(df)
+    df[ ,1:length(common.gene.names)] <- data.matrix(df[, index])
+    colnames(df) <- df.colnames[index]
+    
+    return(as_tibble(df))
+  }
   # Re-order genes
   ranked.exp.df.list <- lapply(ranked.exp.df.list, reorderGene)
   
