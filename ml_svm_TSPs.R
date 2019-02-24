@@ -26,43 +26,37 @@ studies.df <- list(Aguirre_seq_plus,
                    Moffitt_GEO_array_plus,
                    TCGA_PAAD_plus)
 
-# Number of datasets
-num.studies <- length(studies.df) 
-# Sort genes in alphaneumeric orders
+num.studies <- length(studies.df) # Number of datasets
 studies.df <- lapply(studies.df, geneSort)
-# Find the common genes across all datasets
 commonGeneNames <- getGeneSymbols(studies.df[[1]])
 for (i in 2:num.studies) {
   commonGeneNames <- intersect(commonGeneNames, getGeneSymbols(studies.df[[i]]))
 }
-# Number of common genes
-numCommonGenes <- length(commonGeneNames) 
-# Subset the datasets to ones of common genes
-studies.df <- lapply(studies.df, matchCommonGenes)
-# rank_trasnform the datasets
-ranked.studies.df <- lapply(studies.df, rankTransform)
-# Extract ranked expression from each dataset, remove observations of unknown cancer classification, and write them into tibbles
+numCommonGenes <- length(commonGeneNames) # Number of common genes
+
+ranked.studies.df  <- lapply(studies.df, matchCommonGenes) %>% 
+  lapply(rankTransform) 
+
 expression.df <- lapply(ranked.studies.df, extractData, 
-                        common.gene.names = commonGeneNames)
-# Conduct statistical tests and re-order genes by there significance of differential expressions
-expression.df <- reorderGeneBySignificance(expression.df, common.gene.names = commonGeneNames)
+                        common.gene.names = commonGeneNames) %>% 
+  reorderGeneBySignificance(common.gene.names = commonGeneNames)
 # This variable indicates how many genes of top differential expression are kept to make TSPs
-# We will only keep this number of genes, 
 # this will give us a maximum of (df.length)*(df.length - 1)/2 variables in TSPs
 numGenesToKeep <- 10
+
 # Make the TSPs 
-transposed.learning.df <- lapply(expression.df, transposeTibble,
-                                 df.length = numGenesToKeep)
 geneSubsetNames <- colnames(expression.df[[1]])[1:numGenesToKeep]
-studies <- makeTSPs(transposed.learning.df, 
-                  gene.subset.names = geneSubsetNames,
-                  df.length = numGenesToKeep)
+studies <- lapply(expression.df, transposeTibble, 
+                  df.length = numGenesToKeep) %>% 
+  makeTSPs(gene.subset.names = geneSubsetNames, 
+           df.length = numGenesToKeep)
 # This is the same as the total number of TSPs in the final training data
 new.df.length <- dim(studies[[1]])[2]
 # Append the classification to the training data
 for (i in 1:num.studies) {
   studies[[i]] <- add_column(studies[[i]], class = ranked.studies.df[[i]]$sampInfo$cluster.MT[!is.na(ranked.studies.df[[i]]$sampInfo$cluster.MT)]) 
 }
+
 # We create an empty tibble first to hold the leanring results
 learning.results <- tibble(training.set = rep('NA', length(studies)^2), 
                            testing.set = rep('NA', length(studies)^2), 
