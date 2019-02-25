@@ -1,30 +1,11 @@
 library(tidyverse)
 library(caret)
 library(e1071) # package containing svm
+source("file_loading.R")
 source("preprocessing_fxns.R")
 source("rank_transform_fxns.R")
 source("TSPs_fxns.R")
-
 set.seed(100)
-dataPath <- "/Users/gr8lawrence/Desktop/Senior Honors Thesis/datasets/"
-            #"/nas/longleaf/home/tianyi96/datasets_used/" # change this line to your local dataset directory
-studies.names <- c("Aguirre-Seq",
-                   "Linehan-Seq",
-                   "COMPASS",
-                   "Moffitt Arrays",
-                   "TCGA-PAAD") # Names of the studies in the same order as loading below 
-# Load datasets
-load(paste(dataPath, "Aguirre_seq_plus.RData", sep = ""))
-load(paste(dataPath, "Linehan_Seq_plus.RData", sep = ""))
-load(paste(dataPath, "COMPASS.2017_plus.RData", sep = ""))
-load(paste(dataPath, "Moffitt_GEO_array_plus.RData", sep = ""))
-load(paste(dataPath, "TCGA_PAAD_plus.RData", sep = ""))
-# Incorporate all datasets into a single list object
-studies.df <- list(Aguirre_seq_plus, 
-                   Linehan_Seq_plus,
-                   COMPASS.2017_plus,
-                   Moffitt_GEO_array_plus,
-                   TCGA_PAAD_plus)
 
 num.studies <- length(studies.df) # Number of datasets
 studies.df <- lapply(studies.df, geneSort)
@@ -40,6 +21,7 @@ ranked.studies.df  <- lapply(studies.df, matchCommonGenes) %>%
 expression.df <- lapply(ranked.studies.df, extractData, 
                         common.gene.names = commonGeneNames) %>% 
   reorderGeneBySignificance(common.gene.names = commonGeneNames)
+
 # This variable indicates how many genes of top differential expression are kept to make TSPs
 # this will give us a maximum of (df.length)*(df.length - 1)/2 variables in TSPs
 numGenesToKeep <- 10
