@@ -17,6 +17,10 @@ Multiple studies have been published extracting gene expression information from
 ### Notes
 
 * Datasets used in this project were uploaded to the 'dataset_used' folder.
-* Datasets and their directory should be loaded in `file_loading.R`.
-* R scripts whose name starts with `ml` are actual code for training and prediction.
+* If you wish to run this script locally, please do the following:
+    + Make sure your R is at least at version 3.5.0 (or the `RMTL` package will complain).
+    + Download the files from the repository.
+    + Create a new R project on the folder in which you store the files.
+    + Specify Datasets and their local directory in `file_loading.R`.
+    + Run the R scripts whose name starts with `ml` (actual code for training and prediction).
 * `result_visualization.Rmd` contains all figures that will appear in the final thesis. The work is still in progress.
