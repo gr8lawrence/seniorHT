@@ -1,4 +1,6 @@
 ## Tianyi Liu's Senior Honors Thesis
+
+***
 Repository for the R project for my senior honors thesis. I will constantly add to or edit the files. Questions and concerns regarding the codes should be directed to me [through this link](mailto:tianyi96@live.unc.edu). 
 
 ### Research Supervisor
@@ -15,3 +17,6 @@ Multiple studies have been published extracting gene expression information from
 ### Notes
 
 * Datasets used in this project were uploaded to the 'dataset_used' folder.
+* Datasets and their directory should be loaded in `file_loading.R`.
+* R scripts whose name starts with `ml` are actually code for training and prediction.
+* `result_visualization.Rmd` contains all figures that will appear in the final thesis. The work is still in progress.
