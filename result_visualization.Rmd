@@ -1,0 +1,349 @@
+---
+title: "Classification Performance Visualization"
+author: "Tianyi Liu"
+date: "2/19/2019"
+output: html_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(pROC)
+library(ROCR)
+```
+
+```{r load_data, include = FALSE}
+data_path <- "/Users/gr8lawrence/Desktop/Senior Honors Thesis/R_output_from_cluster/"
+## Load data into a single list
+fr <- list()
+load(paste(data_path, "learning_result_RT_rf.Rdata", sep = ""))
+fr[[1]] <- final_results
+load(paste(data_path, "learning_result_RT_svm.Rdata", sep = ""))
+fr[[2]] <- final_results
+load(paste(data_path, "learning_result_TSPs_rf_tp_100.Rdata", sep = ""))
+fr[[3]] <- final_results
+load(paste(data_path, "learning_result_TSPs_svm_tp_500.Rdata", sep = ""))
+fr[[4]] <- final_results
+```
+
+## Overview
+
+In this document, we present visualizations of our results that demonstrate the performances of various combinations of data processing, learning strategy, and machine learning models. 
+
+## Data Pre-processing
+
+In this section, we process our data and combine everything in a giant tibble file so that downstream tasks of plotting the data would be a lot easier. We have already loaded the data from runs on the clusters and only need to rearrange them now. The `tibble` below presents the final arrangement.
+
+```{r data_processing}
+plot_dir <- "/Users/gr8lawrence/Desktop/Senior Honors Thesis/plots/"
+
+results_tibble_list <- list()
+results_tibble <- tibble() ## This is the final giant tibble
+## Tidy and organize the results from the scripts run on the computing cluster
+## For the svm outputs
+for (i in c(2, 4)) {
+  fr[[i]]$results <- fr[[i]]$results[ ,-c(3, 4)]
+  colnames(fr[[i]]$results)[1:2] <- c("training.set", "test.set")
+  fr[[i]]$results <- fr[[i]]$results %>% add_column(strategy = "Single") 
+  for (j in 1:dim(fr[[i]]$results)[1]) {
+    if (substr(fr[[i]]$results$training.set[j], 1, 4) == "comb" || substr(fr[[i]]$results$training.set[j], 1, 4) == "Comb" ) {
+      fr[[i]]$results$training.set[j] <- "Combined"
+      fr[[i]]$results$strategy[j] <- "Combined"
+    } 
+  }
+  if (i == 2) {
+    results_tibble_list[[i]] <- fr[[i]]$results %>% mutate(method = "SVM", transformation = "Rank")
+  } else {
+    results_tibble_list[[i]] <- fr[[i]]$results %>% mutate(method = "SVM", transformation = "TSPs")
+  }
+}
+## For the RF outputs
+for (i in c(1, 3)) {
+  colnames(fr[[i]]$results)[1:2] <- c("training.set", "test.set")
+  fr[[i]]$results <- fr[[i]]$results %>% add_column(strategy = "Single") 
+  for (j in 1:dim(fr[[i]]$results)[1]) {
+    if (substr(fr[[i]]$results$training.set[j], 1, 4) == "comb" || substr(fr[[i]]$results$training.set[j], 1, 4) == "Comb" ) {
+      fr[[i]]$results$training.set[j] <- "Combined"
+      fr[[i]]$results$strategy[j] <- "Combined"
+    } 
+  }
+  if (i == 1) {
+    results_tibble_list[[i]] <- fr[[i]]$results %>% mutate(method = "RF", transformation = "Rank")
+  } else {
+    results_tibble_list[[i]] <- fr[[i]]$results %>% mutate(method = "RF", transformation = "TSPs")
+  }
+}
+## Combine the result tibble
+results_tibble <- rbind(results_tibble_list[[1]], results_tibble_list[[2]], results_tibble_list[[3]], results_tibble_list[[4]])
+## Change the data type of variables to appropriate ones
+results_tibble <- results_tibble[order(results_tibble$transformation), ] 
+results_tibble[, 3:5] <- apply(results_tibble[, 3:5], 2, as.double)
+ # results_tibble$accuracy <- as.numeric(results_tibble$accuracy)
+ # results_tibble$sensitivity <- as.numeric(results_tibble$sensitivity)
+ # results_tibble$specificity <- as.numeric(results_tibble$specificity)
+results_tibble$method <- factor(results_tibble$method, levels = c("PLR", "RF", "SVM", "MTL"))
+results_tibble$transformation <- factor(results_tibble$transformation, levels = c("Rank", "TSPs"))
+results_tibble$strategy <- factor(results_tibble$strategy, levels = c("Single", "Combined"))
+## We average the measurements of performance across results from "Single" dataset learning by aggregating the data.
+summary_table <- aggregate(cbind(accuracy, sensitivity, specificity) ~ test.set + method + transformation + strategy, data = results_tibble, mean)
+## Print part of the final aggregate data
+print(as.tibble(summary_table, n = 10))
+```
+
+## Prediction Accuracy of Common ML Methods
+
+One measurement of performances for any machine learning program is the prediction accuracy. Here, we present the boxplots for the holdout prediction accuracies of several of our combinations of data transformation (`Rank` or `TSPs`), common machine learning methods (Penalized Logistic Regression (`PLR`), Random Forest (`RF`), or Support Vecotr Machine(`SVM`)), and learning strategies (Trained on single (`Single`) or combined (`Combined`) datasets) at the same probabilistic cutoff ($P(Y_i = \textrm{"basal"}) > 0.5$ for each obeservation's cancer subtype $Y_i$).
+
+### Figure 1 
+
+```{r pred_accu}
+ggplot(data = summary_table, aes(x = transformation, y = accuracy, fill = transformation)) +
+  geom_boxplot(alpha = 0.8, width = 0.45) +
+  ggtitle("Comparison of Prediction Accuracy",
+          subtitle = "(Cutoff p = 0.5)") +
+  xlab("Transformation") +
+  ylab("Holdout Prediciton Accuracy") +
+  theme_light() + facet_grid(strategy ~ method) +
+  theme(axis.text.x = element_text(vjust = 0.5)) +
+  scale_fill_manual(values = c("#E69F00", "#56B4E9"), 
+                    name = "Transformation")
+```
+
+## ROC Plot
+
+Another way to visualize the performance of each program is to draw ROC curves. Because we know from the accuracy plot that random forest plus TSPs produces the best prediction accuracy, we will plot out the roc curves only for this combination under each learning cycle (from different datasets). The ROC curves are plotted using the `pROC` package. 
+
+### Preprocessing
+
+We need to obtain the truth vectors before proceeding. 
+
+``` {r data_pp2}
+dataPath <- "/Users/gr8lawrence/Desktop/Senior Honors Thesis/datasets/" # The name of the directory where all data sets are stored locally
+studies_names <- c("Aguirre-Seq", "Linehan-Seq", "COMPASS", "Moffitt Arrays", "TCGA-PAAD") # Names of the studies in the same order as being loaded
+# Load datasets
+load(paste(dataPath, "Aguirre_seq_plus.RData", sep = ""))
+load(paste(dataPath, "Linehan_Seq_plus.RData", sep = ""))
+load(paste(dataPath, "COMPASS.2017_plus.RData", sep = ""))
+load(paste(dataPath, "Moffitt_GEO_array_plus.RData", sep = ""))
+load(paste(dataPath, "TCGA_PAAD_plus.RData", sep = ""))
+# Incorporate all datasets into a single list object
+studies_df <- list(Aguirre_seq_plus, Linehan_Seq_plus, COMPASS.2017_plus, Moffitt_GEO_array_plus, TCGA_PAAD_plus)
+num_studies <- length(studies_df) # Number of datasets
+
+## Assign a truth vector to each cycle of learning using the loop below
+truth_list <- list() # A list object to hold all truth vectors
+for (i in 1:num_studies) {
+  truth <- studies_df[[i]]$sampInfo$cluster.MT[!is.na(studies_df[[i]]$sampInfo$cluster.MT)] 
+  for (j in 1:num_studies) {
+    truth_list[[(i - 1) * num_studies + j]] <- truth
+  }
+}
+
+
+## Below the predicitons from trainings on single and combined datasets were grouped and combined respectively
+load(paste(data_path, "TSPs_rf_predictions.Rdata", sep = ""))
+prediction_list_single <- list()
+truth_list_single <- list()
+prediction_list_combined <- list()
+truth_list_combined <- list()
+# prediction_vec_single <- vector()
+# truth_vec_single <- vector()
+# prediction_vec_combined <- vector()
+# truth_vec_combined <- vector()
+for (i in 1:num_studies^2) {
+  if (i %% 5 != 0) {
+    prediction_list_single[[i]] <- final_preds[[i]]$predictions[,1]
+    truth_list_single[[i]] <- truth_list[[i]]
+    # prediction_vec_single <- c(prediction_vec_single, final_preds[[i]]$predictions[,1]) 
+    # truth_vec_single <- c(truth_vec_single, truth_list[[i]])
+  } else {
+    prediction_list_combined[[i]] <- final_preds[[i]]$predictions[,1]
+    truth_list_combined[[i]] <- truth_list[[i]]
+    # prediction_vec_combined <- c(prediction_vec_combined, final_preds[[i]]$predictions[,1])
+    # truth_vec_combined <- c(truth_vec_combined, truth_list[[i]])
+  }
+}
+# truth_vec_single <- factor(ifelse(truth_vec_single == 1, "basal", "classical"), levels = c("basal", "classical"))
+# truth_vec_combined <- factor(ifelse(truth_vec_combined == 1, "basal", "classical"), levels = c("basal", "classical"))
+```
+
+### Figure 2
+```{r roc_curve_rocr}
+pred <- prediction(prediction_list_single[[1]], truth_list_single[[1]])
+perf <- performance(pred, measure = "tpr", x.measure = "fnr") 
+plot(perf, col=rainbow(10))
+```
+
+
+
+```{r roc_curve}
+roc1 <- plot.roc(truth_list_single[[1]], prediction_list_single[[1]], 
+         main = "ROC Curves for Predictions \nRandom Forest + TSPs",
+         cex.main = 1.05,
+         #smooth = TRUE,
+         col = "#E69F00")
+lineobj1 <- lines.roc(truth_list_single[[4]], prediction_list_single[[4]],
+                     #smooth = TRUE,
+                     col = rainbow(5))
+lineobj2 <- lines.roc(truth_list_combined[[5]], prediction_list_combined[[5]],
+                     #smooth = TRUE,
+                     col = "#56B4E9")
+legend("bottomright", legend = c("Single", "Combined"), col = c("#E69F00", "#56B4E9"), lwd = 2, title = "Strategy")
+```
+
+## MTL
+Multitask learning (`MTL`) is a relatively new machine learning technique for classification that weighs in the information from all datasets for training in addition to that of each single dataset. In our study, we apply an implementation of the MTL as an analougue to the penalized logistic regression (with a specific L21 norm) with extra penalization for leveraging across-dataset information to predict pancreatic cancer subtypes from genomic data. 
+
+As shown above, random forest plus TSPs shows the most promisiong results among all the strategies withouth using the MTL. In this section, we evaluate the performance of using the MTL method alongside random forest plus TSPs to see if the new technique brings improvement to the predictions of pancreateic cancer subtypes.
+
+``` {r mtl_data_processing}
+## Load the MTL results from the cluster
+MTL_path <-  "/Users/gr8lawrence/Desktop/Senior Honors Thesis/MTL_results/"
+load(paste(MTL_path, "MTL_RT_results.RData", sep = ""))
+mtl_rt_results <- final_results$results
+mtl_rt_results_trans <- add_column(mtl_rt_results, method = "MTL", transformation = "Rank")
+load(paste(MTL_path, "MTL_RT_results_plr.RData", sep = ""))
+plr_rt_results <- final_results_plr$results
+plr_rt_results_trans <- add_column(plr_rt_results, method = "PLR", transformation = "Rank")
+load(paste(MTL_path, "MTL_TSPs_results.RData", sep = ""))
+mtl_tsps_results <- final_results$results
+mtl_tsps_results_trans <- add_column(mtl_tsps_results, method = "MTL", transformation = "TSPs")
+load(paste(MTL_path, "MTL_TSPs_results_plr.RData", sep = ""))
+plr_tsps_results <- final_results_plr$results
+plr_tsps_results_trans <- add_column(plr_tsps_results, method = "PLR", transformation = "TSPs")
+
+## Combine the learning results into one dataset
+mtl_results <- rbind(mtl_rt_results_trans, mtl_tsps_results_trans)
+plr_results <- rbind(plr_rt_results_trans, plr_tsps_results_trans) 
+
+## Change columns to correct formats
+mtl_results_trimmed <- mtl_results %>% 
+  select(-lambda.1, -lambda.2) 
+plr_results_trimmed <- plr_results %>% 
+  select(-lambda.1, -lambda.2) 
+mtl_results_trimmed[ ,2:4] <- apply(mtl_results_trimmed[ ,2:4], 2, as.double)
+plr_results_trimmed[ ,2:4] <- apply(plr_results_trimmed[ ,2:4], 2, as.double)
+mtl_results_trimmed$method <- factor(mtl_results_trimmed$method, levels = c("PLR", "RF", "SVM", "MTL"))
+plr_results_trimmed$method <- factor(plr_results_trimmed$method, levels = c("PLR", "RF", "SVM", "MTL"))
+mtl_results_trimmed$transformation <- factor(mtl_results_trimmed$transformation, levels = c("Rank", "TSPs")) 
+plr_results_trimmed$transformation <- factor(plr_results_trimmed$transformation, levels = c("Rank", "TSPs"))
+
+# Calculate the change in prediction accuracy from PLR to MTL
+accu_diff <- mtl_results_trimmed$accuracy - plr_results_trimmed$accuracy
+sens_diff <- mtl_results_trimmed$sensitivity - plr_results_trimmed$sensitivity
+spec_diff <- mtl_results_trimmed$specificity - plr_results_trimmed$specificity
+diff_df <- tibble(testing.set = mtl_results_trimmed$testing.set,
+                  accuracy.diff = accu_diff,
+                  sensitivity.diff = sens_diff,
+                  specificity.diff = spec_diff,
+                  transformation = mtl_results_trimmed$transformation)
+diff_df
+```
+
+### Figure 4
+#### Panel (A)
+
+We compare the accuracies of the MTL predictions. We put them side by side with those of the random forest predictions.
+
+``` {r concatenate_data} 
+rf_results <- as.tibble(summary_table[which(summary_table$method == "RF" & summary_table$strategy == "Combined"), ]) %>% select(-strategy)
+colnames(rf_results)[1] <- "testing.set"
+concatenated_df <- bind_rows(mtl_results_trimmed, rf_results)
+```
+
+``` {r pred_accu_mtl}
+accu_comp_plot <- ggplot(data = concatenated_df, aes(x = transformation, y = accuracy, fill = transformation)) +
+                    geom_boxplot(alpha = 0.8, width = 0.45) +
+                    ggtitle("Comparison of Prediction Accuracy \nBetween RF and the MTL method", 
+                      subtitle = "(Cutoff p = 0.5)") +
+                    xlab("Transformation") +
+                    ylab("Accuracy") +
+                    theme_classic() + facet_grid(.~ method) +
+                    theme(axis.text.x = element_text(vjust = 0.5)) +
+                    scale_fill_manual(values = c("#E69F00", "#56B4E9"), 
+                                      name = "Transformation")
+
+ggsave(paste(plot_dir, "Accuracy_comparison_RF_MTL.jpg", sep = ""), plot = last_plot())
+
+accu_comp_plot
+```
+
+
+``` {r pred_accu_diff}
+accu_diff_plot <- ggplot(data = diff_df, aes(x = transformation, y = accuracy.diff, fill = transformation)) +
+                    geom_boxplot(alpha = 0.8, width = 0.45) +
+                    geom_jitter(aes(col = testing.set), position = position_dodge(width = 0.05)) +
+                    geom_hline(aes(yintercept = 0), linetype = "dashed", colour = "red") + 
+                    ggtitle("Change in Prediction Accuracy \nBy Adding Global Penalization Term", 
+                      subtitle = "(Cutoff p = 0.5)") +
+                    xlab("Transformation") +
+                    ylab("Difference in Accuracy") +
+                    theme_classic() + 
+                    theme(axis.text.x = element_text(vjust = 0.5)) +
+                    scale_fill_manual(values = c("#E69F00", "#56B4E9"), 
+                                      name = "Transformation") +
+                    scale_color_discrete(name = "Holdout Set")
+
+# Save the plot
+ggsave(paste(plot_dir, "Change_in_accuracy_PLR_to_MTL.jpg"))
+
+# Show the plot
+accu_diff_plot
+```
+
+``` {r pred_sens_diff}
+ggplot(data = diff_df, aes(x = transformation, y = sensitivity.diff, fill = transformation)) +
+  geom_boxplot(alpha = 0.8, width = 0.45) +
+  geom_jitter(aes(col = testing.set), position = position_dodge(width = 0.05)) +
+  geom_hline(aes(yintercept = 0), linetype = "dashed", colour = "red") + 
+  ggtitle("Change in Prediction Sensitivity \nFrom PLR to the MTL method", 
+          subtitle = "(Cutoff p = 0.5)") +
+  xlab("Transformation") +
+  ylab("Accuracy") +
+  theme_classic() + 
+  theme(axis.text.x = element_text(vjust = 0.5)) +
+  scale_fill_manual(values = c("#E69F00", "#56B4E9"), 
+                    name = "Transformation") +
+  scale_color_discrete(name = "Holdout Set")
+```
+
+#### Panel (B)
+
+``` {r roc_plot_mtl, eval = FALSE}
+prediction_vec_mtl_rt <- as.vector(mtl_rt_preds[[1]][[1]])
+prediction_vec_mtl_tsps <- as.vector(mtl_tsps_preds[[1]][[1]])
+
+for(i in 2:num_studies) {
+  prediction_vec_mtl_rt <- c(prediction_vec_mtl_rt, mtl_rt_preds[[i]][[1]])
+  prediction_vec_mtl_tsps <- c(prediction_vec_mtl_tsps, mtl_tsps_preds[[i]][[1]])
+}
+
+roc2 <- plot.roc(truth_vec_combined, prediction_vec_mtl_rt,
+                 main = "ROC Curves for Predictions \nMTL",
+                 col = "#E69F00")
+
+lineobj2 <- lines.roc(truth_vec_combined, prediction_vec_mtl_tsps,
+                     #smooth = TRUE,
+                     col = "#56B4E9")
+
+# lineobj3 <- lines.roc(truth_vec_single, prediction_vec_single, 
+#                       col = "red")
+
+lineobj4 <- lines.roc(truth_vec_combined, prediction_vec_combined,
+                     col = "green")
+
+legend("bottomright", legend = c("MTL+Rank", "MTL+TSPs", "RF+TSPs"), col = c("#E69F00", "#56B4E9", "green"), lwd = 2, title = "Method+Trans")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
