@@ -18,6 +18,9 @@ numCommonGenes <- length(commonGeneNames) # Number of common genes
 ranked.studies.df  <- lapply(studies.df, matchCommonGenes) %>% 
   lapply(rankTransform) 
 
+# The labels for patients with a label
+labels <- lapply(ranked.studies.df, function(x){ x$sampInfo$cluster.MT[!is.na(x$sampInfo$cluster.MT)] })
+
 expression.df <- lapply(ranked.studies.df, extractData, 
                         common.gene.names = commonGeneNames) %>% 
   reorderGeneBySignificance(common.gene.names = commonGeneNames)
@@ -36,7 +39,7 @@ studies <- lapply(expression.df, transposeTibble,
 new.df.length <- dim(studies[[1]])[2]
 # Append the classification to the training data
 for (i in 1:num.studies) {
-  studies[[i]] <- add_column(studies[[i]], class = ranked.studies.df[[i]]$sampInfo$cluster.MT[!is.na(ranked.studies.df[[i]]$sampInfo$cluster.MT)]) 
+  studies[[i]] <- add_column(studies[[i]], class = labels[[i]]) 
 }
 
 # We create an empty tibble first to hold the leanring results
