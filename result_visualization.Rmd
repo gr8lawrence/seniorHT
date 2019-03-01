@@ -8,6 +8,7 @@ output: html_document
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(caret)
 library(pROC)
 library(ROCR)
 ```
@@ -130,7 +131,7 @@ load(paste(dataPath, "TCGA_PAAD_plus.RData", sep = ""))
 studies_df <- list(Aguirre_seq_plus, Linehan_Seq_plus, COMPASS.2017_plus, Moffitt_GEO_array_plus, TCGA_PAAD_plus)
 num_studies <- length(studies_df) # Number of datasets
 
-## Assign a truth vector to each cycle of learning using the loop below
+# Assign a truth vector to each cycle of learning using the loop below
 truth_list <- list() # A list object to hold all truth vectors
 for (i in 1:num_studies) {
   truth <- studies_df[[i]]$sampInfo$cluster.MT[!is.na(studies_df[[i]]$sampInfo$cluster.MT)] 
@@ -139,57 +140,96 @@ for (i in 1:num_studies) {
   }
 }
 
-
-## Below the predicitons from trainings on single and combined datasets were grouped and combined respectively
+# Below the predicitons from trainings on single and combined datasets were grouped and combined respectively
 load(paste(data_path, "TSPs_rf_predictions.Rdata", sep = ""))
+hold_out_set_names <- fr[[1]]$results$test.set
 prediction_list_single <- list()
 truth_list_single <- list()
 prediction_list_combined <- list()
 truth_list_combined <- list()
-# prediction_vec_single <- vector()
-# truth_vec_single <- vector()
-# prediction_vec_combined <- vector()
-# truth_vec_combined <- vector()
 for (i in 1:num_studies^2) {
   if (i %% 5 != 0) {
     prediction_list_single[[i]] <- final_preds[[i]]$predictions[,1]
     truth_list_single[[i]] <- truth_list[[i]]
-    # prediction_vec_single <- c(prediction_vec_single, final_preds[[i]]$predictions[,1]) 
-    # truth_vec_single <- c(truth_vec_single, truth_list[[i]])
   } else {
     prediction_list_combined[[i]] <- final_preds[[i]]$predictions[,1]
     truth_list_combined[[i]] <- truth_list[[i]]
-    # prediction_vec_combined <- c(prediction_vec_combined, final_preds[[i]]$predictions[,1])
-    # truth_vec_combined <- c(truth_vec_combined, truth_list[[i]])
   }
 }
-# truth_vec_single <- factor(ifelse(truth_vec_single == 1, "basal", "classical"), levels = c("basal", "classical"))
-# truth_vec_combined <- factor(ifelse(truth_vec_combined == 1, "basal", "classical"), levels = c("basal", "classical"))
+
+# Create a dataset to hold the sensitivity and false negative rates
+df_tibble_list <- list()
+prediction_list_single[[25]] <- "just a placeholder"
+
+# Group different learning for same hold-out (test) sets
+for (ind in 1:num_studies) {
+  sen_vec_single <- vector()
+  fp_vec_single <- vector()
+  cutoff_vec_single <- vector()
+  sen_vec_combined <- vector()
+  fp_vec_combined <- vector()
+  cutoff_vec_combined <- vector()
+  # Use probability cutoffs to calculate different 
+  for (i in 1:num_studies^2) {
+    if (hold_out_set_names[i] == studies_names[ind]) {
+      if (!is.null(prediction_list_single[[i]]) && prediction_list_single[[i]] != "just a placeholder") {
+        for (j in seq(0.01, 1, 0.01)) {
+          pred_vec <- factor(ifelse(prediction_list_single[[i]] > j, "basal", "classical"),
+                             levels = c("basal", "classical"))
+          conf_matrix <- confusionMatrix(pred_vec, truth_list_single[[i]])
+          sen_vec_single <- c(sen_vec_single, conf_matrix$byClass[["Sensitivity"]])
+          fp_vec_single <- c(fp_vec_single, 1 - conf_matrix$byClass[["Specificity"]])
+          cutoff_vec_single <- c(cutoff_vec_single, j)
+        }
+      } else if (!is.null(prediction_list_combined[[i]])) {
+        for (jj in seq(0.01, 1, 0.01)) {
+          pred_vec <- factor(ifelse(prediction_list_combined[[i]] > jj, "basal", "classical"),
+                             levels = c("basal", "classical"))
+          conf_matrix <- confusionMatrix(pred_vec, truth_list_combined[[i]])
+          sen_vec_combined <- c(sen_vec_combined, conf_matrix$byClass[["Sensitivity"]])
+          fp_vec_combined <- c(fp_vec_combined, 1 - conf_matrix$byClass[["Specificity"]])
+          cutoff_vec_combined <- c(cutoff_vec_combined, jj)
+  
+        }
+      }
+      df_tibble_list[[ind]] <- tibble(sensitivity = c(sen_vec_single, sen_vec_combined),
+                                    false.positive = c(fp_vec_single, fp_vec_combined),
+                                    cutoff = c(cutoff_vec_single, cutoff_vec_combined),
+                                    strategy = c(rep("Single", length(sen_vec_single)),
+                                                 rep("Combined", length(sen_vec_combined))),
+                                    holdout.set = studies_names[[ind]])
+    }
+  }
+}
+
+roc_df_tibble <- bind_rows(df_tibble_list) 
+roc_df_tibble <- aggregate(cbind(sensitivity, false.positive) ~ strategy + cutoff + holdout.set, data = roc_df_tibble, mean) %>% 
+  (function(x){
+    x[order(x$sensitivity, x$false.positive), ]
+  })
+              
+
+as.tibble(roc_df_tibble)
 ```
 
 ### Figure 2
-```{r roc_curve_rocr}
-pred <- prediction(prediction_list_single[[1]], truth_list_single[[1]])
-perf <- performance(pred, measure = "tpr", x.measure = "fnr") 
-plot(perf, col=rainbow(10))
+``` {r roc_curve_manual}
+single_row_inds <- which(roc_df_tibble$strategy == "Single")
+combined_row_inds <- which(roc_df_tibble$strategy == "Combined")
+rf_tsp_roc_plot <- ggplot(roc_df_tibble[single_row_inds,], aes(x = false.positive, y = sensitivity)) +
+                    geom_step(col = "#E69F00", show.legend = TRUE) + 
+                    geom_step(data = roc_df_tibble[combined_row_inds,], aes(x = false.positive, y = sensitivity),
+                              col = "#56B4E9",show.legend = TRUE) +
+                    facet_grid(holdout.set~.) + theme_light() +
+                    ggtitle("ROC Plor for Hold-out Analysis", subtitle = "Random Forest + TSPs")
+
+ggsave(paste(plot_dir, "RF_TSPs_ROC_plot.jpg"))
+rf_tsp_roc_plot
 ```
 
 
 
-```{r roc_curve}
-roc1 <- plot.roc(truth_list_single[[1]], prediction_list_single[[1]], 
-         main = "ROC Curves for Predictions \nRandom Forest + TSPs",
-         cex.main = 1.05,
-         #smooth = TRUE,
-         col = "#E69F00")
-lineobj1 <- lines.roc(truth_list_single[[4]], prediction_list_single[[4]],
-                     #smooth = TRUE,
-                     col = rainbow(5))
-lineobj2 <- lines.roc(truth_list_combined[[5]], prediction_list_combined[[5]],
-                     #smooth = TRUE,
-                     col = "#56B4E9")
-legend("bottomright", legend = c("Single", "Combined"), col = c("#E69F00", "#56B4E9"), lwd = 2, title = "Strategy")
-```
+
 
 ## MTL
 Multitask learning (`MTL`) is a relatively new machine learning technique for classification that weighs in the information from all datasets for training in addition to that of each single dataset. In our study, we apply an implementation of the MTL as an analougue to the penalized logistic regression (with a specific L21 norm) with extra penalization for leveraging across-dataset information to predict pancreatic cancer subtypes from genomic data. 
