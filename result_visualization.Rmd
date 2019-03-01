@@ -9,13 +9,13 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(caret)
-library(pROC)
-library(ROCR)
+source("file_loading.R")
 ```
 
 ```{r load_data, include = FALSE}
 data_path <- "/Users/gr8lawrence/Desktop/Senior Honors Thesis/R_output_from_cluster/"
-## Load data into a single list
+PLR_data_path <- "/Users/gr8lawrence/Desktop/Senior Honors Thesis/PLR_results/"
+# Load data into a single list
 fr <- list()
 load(paste(data_path, "learning_result_RT_rf.Rdata", sep = ""))
 fr[[1]] <- final_results
@@ -25,6 +25,10 @@ load(paste(data_path, "learning_result_TSPs_rf_tp_100.Rdata", sep = ""))
 fr[[3]] <- final_results
 load(paste(data_path, "learning_result_TSPs_svm_tp_500.Rdata", sep = ""))
 fr[[4]] <- final_results
+load(paste(PLR_data_path, "RT_plr_results.Rdata", sep = ""))
+fr[[5]] <- final_results
+load(paste(PLR_data_path, "PLR_TSPs_results.Rdata", sep = ""))
+fr[[6]] <- final_results
 ```
 
 ## Overview
@@ -35,9 +39,8 @@ In this document, we present visualizations of our results that demonstrate the 
 
 In this section, we process our data and combine everything in a giant tibble file so that downstream tasks of plotting the data would be a lot easier. We have already loaded the data from runs on the clusters and only need to rearrange them now. The `tibble` below presents the final arrangement.
 
-```{r data_processing}
+```{r data_processing, echo = FALSE}
 plot_dir <- "/Users/gr8lawrence/Desktop/Senior Honors Thesis/plots/"
-
 results_tibble_list <- list()
 results_tibble <- tibble() ## This is the final giant tibble
 ## Tidy and organize the results from the scripts run on the computing cluster
@@ -58,6 +61,7 @@ for (i in c(2, 4)) {
     results_tibble_list[[i]] <- fr[[i]]$results %>% mutate(method = "SVM", transformation = "TSPs")
   }
 }
+
 ## For the RF outputs
 for (i in c(1, 3)) {
   colnames(fr[[i]]$results)[1:2] <- c("training.set", "test.set")
@@ -74,20 +78,34 @@ for (i in c(1, 3)) {
     results_tibble_list[[i]] <- fr[[i]]$results %>% mutate(method = "RF", transformation = "TSPs")
   }
 }
-## Combine the result tibble
-results_tibble <- rbind(results_tibble_list[[1]], results_tibble_list[[2]], results_tibble_list[[3]], results_tibble_list[[4]])
-## Change the data type of variables to appropriate ones
+
+# For PLR results (without variable selection for eliminating collinearity)
+for (i in c(5, 6)) {
+  if (i == 5) {
+    colnames(fr[[i]]$results)[2] <- c("test.set")
+    results_tibble_list[[i]] <- fr[[i]]$results %>% 
+      mutate(method = "PLR", transformation = "Rank") 
+  } else {
+     colnames(fr[[i]]$results)[2] <- c("test.set")
+    results_tibble_list[[i]] <- fr[[i]]$results %>% 
+      mutate(method = "PLR") 
+  }
+}
+
+# Combine the result tibble
+results_tibble <- rbind(results_tibble_list[[1]], results_tibble_list[[2]], results_tibble_list[[3]], results_tibble_list[[4]], results_tibble_list[[5]], results_tibble_list[[6]])
+
+# Change the data type of variables to appropriate ones
 results_tibble <- results_tibble[order(results_tibble$transformation), ] 
 results_tibble[, 3:5] <- apply(results_tibble[, 3:5], 2, as.double)
- # results_tibble$accuracy <- as.numeric(results_tibble$accuracy)
- # results_tibble$sensitivity <- as.numeric(results_tibble$sensitivity)
- # results_tibble$specificity <- as.numeric(results_tibble$specificity)
 results_tibble$method <- factor(results_tibble$method, levels = c("PLR", "RF", "SVM", "MTL"))
 results_tibble$transformation <- factor(results_tibble$transformation, levels = c("Rank", "TSPs"))
 results_tibble$strategy <- factor(results_tibble$strategy, levels = c("Single", "Combined"))
-## We average the measurements of performance across results from "Single" dataset learning by aggregating the data.
+
+# We average the measurements of performance across results from "Single" dataset learning by aggregating the data.
 summary_table <- aggregate(cbind(accuracy, sensitivity, specificity) ~ test.set + method + transformation + strategy, data = results_tibble, mean)
-## Print part of the final aggregate data
+
+# Print part of the final aggregate data
 print(as.tibble(summary_table, n = 10))
 ```
 
@@ -116,20 +134,11 @@ Another way to visualize the performance of each program is to draw ROC curves. 
 
 ### Preprocessing
 
-We need to obtain the truth vectors before proceeding. 
-
-``` {r data_pp2}
-dataPath <- "/Users/gr8lawrence/Desktop/Senior Honors Thesis/datasets/" # The name of the directory where all data sets are stored locally
-studies_names <- c("Aguirre-Seq", "Linehan-Seq", "COMPASS", "Moffitt Arrays", "TCGA-PAAD") # Names of the studies in the same order as being loaded
-# Load datasets
-load(paste(dataPath, "Aguirre_seq_plus.RData", sep = ""))
-load(paste(dataPath, "Linehan_Seq_plus.RData", sep = ""))
-load(paste(dataPath, "COMPASS.2017_plus.RData", sep = ""))
-load(paste(dataPath, "Moffitt_GEO_array_plus.RData", sep = ""))
-load(paste(dataPath, "TCGA_PAAD_plus.RData", sep = ""))
-# Incorporate all datasets into a single list object
-studies_df <- list(Aguirre_seq_plus, Linehan_Seq_plus, COMPASS.2017_plus, Moffitt_GEO_array_plus, TCGA_PAAD_plus)
+We rearrange the prediction data we have into the following tibble.  
+``` {r data_pp2, echo = FALSE}
+studies_df <- studies.df
 num_studies <- length(studies_df) # Number of datasets
+studies_names <- c("Aguirre-Seq", "Linehan-Seq", "COMPASS", "Moffitt Arrays", "TCGA-PAAD") # Names of the studies in the same order as being loaded
 
 # Assign a truth vector to each cycle of learning using the loop below
 truth_list <- list() # A list object to hold all truth vectors
@@ -211,32 +220,37 @@ roc_df_tibble <- aggregate(cbind(sensitivity, false.positive) ~ strategy + cutof
 
 as.tibble(roc_df_tibble)
 ```
-
 ### Figure 2
-``` {r roc_curve_manual}
-single_row_inds <- which(roc_df_tibble$strategy == "Single")
-combined_row_inds <- which(roc_df_tibble$strategy == "Combined")
-rf_tsp_roc_plot <- ggplot(roc_df_tibble[single_row_inds,], aes(x = false.positive, y = sensitivity)) +
-                    geom_step(col = "#E69F00", show.legend = TRUE) + 
-                    geom_step(data = roc_df_tibble[combined_row_inds,], aes(x = false.positive, y = sensitivity),
-                              col = "#56B4E9",show.legend = TRUE) +
-                    facet_grid(holdout.set~.) + theme_light() +
-                    ggtitle("ROC Plor for Hold-out Analysis", subtitle = "Random Forest + TSPs")
 
-ggsave(paste(plot_dir, "RF_TSPs_ROC_plot.jpg"))
+``` {r roc_curve_manual}
+rf_tsp_roc_plot <- ggplot(roc_df_tibble, aes(x = false.positive, y = sensitivity, col = strategy)) +
+                      geom_step(alpha = 0.7, size = 0.8) +
+                      facet_grid(holdout.set~., space = "free") + 
+                      theme_light() + 
+                      theme(panel.spacing = unit(1, "line"), 
+                            panel.background = element_rect(), 
+                            legend.position = "bottom", 
+                            legend.box.background = element_rect(), 
+                            legend.box.margin = margin(1, 1, 1, 1)) +
+                      ggtitle("ROC Plor for Hold-out Analysis", subtitle = "Random Forest + TSPs") +
+                      xlab("1 - Specificity") +
+                      ylab("Sensitivity") +
+                      scale_color_manual(values = c("#56B4E9", "#E69F00"),
+                                         name = "Strategy")
+ggsave(paste(plot_dir, "RF_TSPs_ROC_plot.jpg"), width = 10, height = 50, units = "cm")
 rf_tsp_roc_plot
 ```
-
-
-
-
 
 ## MTL
 Multitask learning (`MTL`) is a relatively new machine learning technique for classification that weighs in the information from all datasets for training in addition to that of each single dataset. In our study, we apply an implementation of the MTL as an analougue to the penalized logistic regression (with a specific L21 norm) with extra penalization for leveraging across-dataset information to predict pancreatic cancer subtypes from genomic data. 
 
 As shown above, random forest plus TSPs shows the most promisiong results among all the strategies withouth using the MTL. In this section, we evaluate the performance of using the MTL method alongside random forest plus TSPs to see if the new technique brings improvement to the predictions of pancreateic cancer subtypes.
 
-``` {r mtl_data_processing}
+
+### Preprocessing
+
+We also do some processing of the data.
+``` {r mtl_data_processing, echo = FALSE}
 ## Load the MTL results from the cluster
 MTL_path <-  "/Users/gr8lawrence/Desktop/Senior Honors Thesis/MTL_results/"
 load(paste(MTL_path, "MTL_RT_results.RData", sep = ""))
