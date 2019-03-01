@@ -1,11 +1,16 @@
 library(tidyverse)
 library(caret)
-library(ranger) # package containing rf
+library(ncvreg)
+library(parallel)
 source("file_loading.R")
 source("preprocessing_fxns.R")
 source("rank_transform_fxns.R")
 source("TSPs_fxns.R")
 set.seed(100)
+
+# Make clusters for paralleling
+no_cores <- 2
+cl <- makeCluster(no_cores)
 
 num.studies <- length(studies.df) # Number of datasets
 studies.df <- lapply(studies.df, geneSort)
@@ -66,8 +71,8 @@ for (i in 1:num.studies) {
     
     # Cross-validation to find the best penalty parameter
     cvfit <- ncvreg::cv.ncvreg(feature_matrix, numeric_labels,
-                               family = "binomial" 
-                               # # cluster = cl, 
+                               family = "binomial", 
+                               cluster = cl
                                # penalty = "lasso", 
                                # nfolds = 30, 
                                # seed = 100, 
@@ -117,8 +122,8 @@ for (i in 1:num.studies) {
   
   # Cross-validation to find the best penalty parameter
   cvfit <- ncvreg::cv.ncvreg(feature_matrix, numeric_labels,
-                             family = "binomial" 
-                             # # cluster = cl, 
+                             family = "binomial", 
+                             cluster = cl
                              # penalty = "lasso", 
                              # nfolds = 30, 
                              # seed = 100, 
@@ -153,13 +158,11 @@ for (i in 1:num.studies) {
 }
 
 # We compile a list of the outputs that contains the models as well as the result table
-final_results <- list("models" = final_models, "results" = learning.results)
-
+final_results <- list("models" = final_models, 
+                      "results" = learning.results)
 print(learning.results, n = length(studies)^2)
-
-write.table(learning.results, file = "/nas/longleaf/home/tianyi96/RT_plr_results.csv")
-
+# write.table(learning.results, file = "/nas/longleaf/home/tianyi96/RT_plr_results.csv")
 save(x = final_results, file = "RT_plr_results.Rdata")
-save(x = final_preds, file = "RT_plr_predictions.Rdata")
+# save(x = final_preds, file = "RT_plr_predictions.Rdata")
 save.image()
 
