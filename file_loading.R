@@ -2,7 +2,7 @@
 ## Written by: Tianyi Liu
 
 
-dataPath <- "/Users/gr8lawrence/Desktop/Senior Honors Thesis/datasets/"
+dataPath <- "datasets_used/"
 #"/nas/longleaf/home/tianyi96/datasets_used/" # change this line to your local dataset directory
 studies.names <- c("Aguirre-Seq",
                    "Linehan-Seq",
