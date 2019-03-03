@@ -122,11 +122,9 @@ for (i in 1:len) {
     )
   
 }
-final_results <- list("models" = final_models, "results" = learning.results)
-
-print(learning.results, n = 2*length(studies)^2)
-
-write.table(learning.results, file = "/nas/longleaf/home/tianyi96/learning_results_RT_svm.csv")
-
-save(x = final_results, file = "grid_search_result.Rdata")
+final_results <- list("models" = final_models, 
+                      "results" = learning.results)
+print(learning.results, n = length(studies)^2)
+write.table(learning.results, file = "result_tables/learning_results_SVM_RT.csv")
+save(x = final_results, file = "models_and_predictions/SVM_RT_results.Rdata")
 save.image()

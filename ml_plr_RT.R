@@ -161,8 +161,8 @@ for (i in 1:num.studies) {
 final_results <- list("models" = final_models, 
                       "results" = learning.results)
 print(learning.results, n = length(studies)^2)
-# write.table(learning.results, file = "/nas/longleaf/home/tianyi96/RT_plr_results.csv")
-save(x = final_results, file = "RT_plr_results.Rdata")
-# save(x = final_preds, file = "RT_plr_predictions.Rdata")
+write.table(learning.results, file = "result_tables/PLR_RT_results.csv")
+save(x = final_results, file = "models_and_predictions/PLR_RT_results.Rdata")
+save(x = final_preds, file = "models_and_predictions/PLR_RT_predictions.Rdata")
 save.image()
 

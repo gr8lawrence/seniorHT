@@ -167,9 +167,9 @@ final_results <- list("models" = final_models, "results" = learning.results)
 
 print(learning.results, n = length(studies)^2)
 
-write.table(learning.results, file = "/nas/longleaf/home/tianyi96/TSPs_plr_results.csv")
+write.table(learning.results, file = "result_tables/TSPs_plr_results.csv")
 
-save(x = final_results, file = "TSPs_plr_results.Rdata")
-save(x = final_preds, file = "TSPs_plr_predictions.Rdata")
+save(x = final_results, file = "models_and_predictions/TSPs_plr_results.Rdata")
+save(x = final_preds, file = "models_and_predictions/TSPs_plr_predictions.Rdata")
 save.image()
 

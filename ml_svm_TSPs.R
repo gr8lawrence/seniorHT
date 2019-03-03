@@ -140,7 +140,7 @@ final_results <- list("models" = final_models,
                       "results" = learning.results)
 # Print the learning results
 print(learning.results, n = 2*length(studies)^2)
-write.table(learning.results, file = "/nas/longleaf/home/tianyi96/TSPs_svm_results.csv")
-save(x = final_results, file = "TSPs_svm_results.Rdata")
+write.table(learning.results, file = "result_tables/SVM_TSPs_results.csv")
+save(x = final_results, file = "models_and_predictions/SVM_TSPs_results.Rdata")
 save.image()
 

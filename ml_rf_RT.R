@@ -107,11 +107,9 @@ for (i in 1:len) {
 }
 
 # We compile a list of the outputs that contains the models as well as the result table
-final_results <- list("models" = final_models, "results" = learning.results)
-
+final_results <- list("models" = final_models, 
+                      "results" = learning.results)
 print(learning.results, n = length(studies)^2)
-
-write.table(learning.results, file = "/nas/longleaf/home/tianyi96/learning_results_RT_rf.csv")
-
-save(x = final_results, file = "learning_result_RT_rf.Rdata")
+write.table(learning.results, file = "result_tables/learning_results_RF_RT.csv")
+save(x = final_results, file = "models_and_predictions/learning_result_RF_RT.Rdata")
 save.image()
