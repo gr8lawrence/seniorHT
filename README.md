@@ -21,6 +21,8 @@ Multiple studies have been published extracting gene expression information from
     + Make sure your R is at least at version 3.5.0 (or the `RMTL` package will complain).
     + Download the files from the repository.
     + Create a new R project on the folder in which you store the files.
+    + Create two directories named "result_tables" and "models_and_predictions" using the following command line
+        + `mkdir result_tables models_and_predictions`
     + Specify Datasets and their local directory in `file_loading.R`.
     + Run the R scripts whose name starts with `ml` (actual code for training and prediction).
 * `result_visualization.Rmd` contains all figures that will appear in the final thesis. The work is still in progress.
