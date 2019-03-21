@@ -119,7 +119,7 @@ for (i in 1:num.studies) {
 ## We want to compare the performance of MTL with that of the penalized logistic regression model (lambda_2 = 0)
 ## We create an empty tibble first to hold the leanring results
 learning.results.plr <- tibble(testing.set = rep('NA', length(studies)), 
-                               lambda.1 = rep(0, length(studies)),
+                               lambda.1 = 0,
                                lambda.2 = 0,
                                accuracy = rep(0, length(studies)), 
                                sensitivity = rep(0, length(studies)), 
@@ -138,18 +138,11 @@ for (i in 1:num.studies) {
   # We make the lists of feature matrices and truth vectors (must be -1 or 1 for both catogories)
   data_matrix_list <- lapply(training_set, function(x) data.matrix(x[ ,1:new.df.length]))
   class_vec <- lapply(training_set, function(x) ifelse(x$class == "basal", 1, -1))
-  # We start with cross-validation to find the optimal parameters for lambda_1 and lambda_2 (using loop) in the L21 method
-  # We include lambda_2 = 0 (equivalent to penalized logistic regression) to show if there is any 
-  # performance increase by using multi-task learning
-  cross_val <- cv.MTC_L21(data_matrix_list, class_vec, nfolds = 20,
-                          lam1 = 2^seq(-8, 2, 1), 
-                          lam2 = 0)
-  lam1_best <- cross_val$lam1.min
-  # With the selected lambda_1 and lambda_2 we fit the MTL L21 model;
+  # With lambda_1 = lambda_2 = 0 we fit the MTL L21 model;
   # Keep the result when lam2 equals 0. Also put lam2 = 0 into the loop.
   mtl_model <- MTC_L21(data_matrix_list, class_vec, 
-                       lam1 = lam1_best,
-                       lam2 = lam2_best)
+                       lam1 = 0,
+                       lam2 = 0)
   final_models_plr[[i]] <- mtl_model
   # We predict on the test set and output the measurements of learning performance
   # The test set needs to be a list
